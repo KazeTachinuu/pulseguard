@@ -1,0 +1,29 @@
+# Use Go 1.24.2 Docker image for all jobs
+image: golang:1.24.2
+
+# Define the pipeline stages in order
+stages:
+  - test    
+  - build
+
+# Code quality checks and tests
+format:
+  stage: test
+  script:
+    # Format Go code and check for formatting issues
+    - go fmt $(go list ./... | grep -v /vendor/)
+    # Run static analysis to catch common mistakes
+    - go vet $(go list ./... | grep -v /vendor/)
+    # Run tests with race condition detection
+    - go test -race $(go list ./... | grep -v /vendor/)
+
+# Compile the application
+compile:
+  stage: build
+  script:
+    - mkdir -p bin
+    - go build -o bin/pulseguard ./cmd/pulseguard
+  artifacts:
+    # Save the bin directory as build artifact
+    paths:
+      - bin
