@@ -1,5 +1,13 @@
 package main
 
+import (
+	"log"
+
+	"pulseguard/core/tui"
+)
+
 func main() {
-	// TODO: Implement main entry point
+	if err := tui.Run(); err != nil {
+		log.Fatalf("tui: %v", err)
+	}
 }
