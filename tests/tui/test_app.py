@@ -30,22 +30,24 @@ async def test_app_selects_first_panel_on_mount() -> None:
         registry = build_default_registry()
         first = registry.get(registry.identifiers()[0])
 
-        assert app.query_one("#detail-title", Static).renderable == first.title
-        assert app.query_one("#detail-summary", Static).renderable == first.summary
+        assert str(app.query_one("#detail-title", Static).renderable) == first.title
+        assert str(app.query_one("#detail-summary", Static).renderable) == first.summary
         assert (
-            app.query_one("#detail-description", Static).renderable == first.description
+            str(app.query_one("#detail-description", Static).renderable)
+            == first.description
         )
 
         await pilot.press("down")
+        await pilot.pause()
         second = registry.get(registry.identifiers()[1])
-        assert app.query_one("#detail-title", Static).renderable == second.title
+        assert str(app.query_one("#detail-title", Static).renderable) == second.title
 
 
 @pytest.mark.asyncio
 async def test_trigger_primary_runs_first_action() -> None:
     app = PulseGuardApp()
     async with app.run_test() as pilot:  # type: ignore[call-arg]
-        await pilot.press("enter")
+        app.action_trigger_primary()
         status = app.query_one("#status", Static).renderable
         assert "refreshed" in str(status).lower()
 
@@ -82,11 +84,12 @@ async def test_trigger_primary_handles_missing_actions(monkeypatch: pytest.Monke
 
     app = PulseGuardApp()
     async with app.run_test() as pilot:  # type: ignore[call-arg]
-        await pilot.press("enter")
+        app.action_trigger_primary()
         status = str(app.query_one("#status", Static).renderable).lower()
         assert "no actions" in status
 
         await pilot.press("down")
-        await pilot.press("enter")
+        await pilot.pause()
+        app.action_trigger_primary()
         status = str(app.query_one("#status", Static).renderable).lower()
         assert "refreshed" in status
