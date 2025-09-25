@@ -1,13 +1,9 @@
-"""Module entrypoint to run PulseGuard via `python -m pulseguard`."""
+"""Main entry point for pulseguard module.
 
-from pulseguard.cli import main
+This allows running the module with: python -m pulseguard
+"""
 
+from .cli import main
 
-def run() -> None:
-    """Dispatch to the console script handler."""
-
+if __name__ == "__main__":
     main()
-
-
-if __name__ == "__main__":  # pragma: no cover
-    run()

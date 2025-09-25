@@ -1,50 +1,116 @@
 # PulseGuard
 
-PulseGuard is a clean-room starter for a Textual-based password manager. The
-current build intentionally mirrors the official Textual quickstart so future
-features begin from a predictable, minimal baseline.
+A simple password vault manager for storing and managing password entries.
 
-## Getting Started
+## Features
+
+- **Password Storage**: Store passwords with usernames, URLs, and notes
+- **Simple API**: Easy-to-use vault management
+- **CLI Demo**: Command-line interface with sample data
+
+## Installation
 
 ```bash
-uv venv
-source .venv/bin/activate
-uv pip install -e .[dev,test]
+# Install with uv
+uv pip install -e .
+
+# Or with pip
+pip install -e .
 ```
 
-## Daily Commands
+## Usage
+
+### Command Line
 
 ```bash
-uv run pulseguard   # launch the placeholder TUI
-uv run pytest       # run tests
+# Show help
+pulseguard --help
+
+# List all passwords
+pulseguard list
+
+# Add a new password
+pulseguard add "Gmail" "user@example.com" "password123" --url "https://gmail.com" --notes "Personal email"
+
+# Get password details
+pulseguard get "Gmail"
+
+# Edit password (interactive)
+pulseguard edit "Gmail"
+
+# Delete password
+pulseguard delete "Gmail"
+
+# Search passwords
+pulseguard search "gmail"
+
+# Run demo with sample data
+pulseguard demo
+```
+
+### Python API
+
+```python
+from pulseguard import Vault, PasswordEntry
+
+# Create a vault
+vault = Vault()
+
+# Add a password entry
+entry = PasswordEntry(
+    name="Gmail",
+    username="user@gmail.com",
+    password="mypassword",
+    url="https://gmail.com",
+    notes="Personal email"
+)
+vault.add(entry)
+
+# Get all entries
+entries = vault.get_all()
+
+# Get specific entry
+gmail = vault.get("Gmail")
+
+# Remove entry
+vault.remove("Gmail")
+
+# Search entries
+results = vault.search("gmail")
+
+# Count entries
+count = vault.count()
+```
+
+## Development
+
+```bash
+# Install development dependencies
+uv pip install -e .[dev,test]
+
+# Run tests
+uv run pytest
+
+# Format code
 uv run black src tests
+
+# Lint code
 uv run ruff check src tests
 ```
 
-## Project Map
-- Runtime code: `src/pulseguard/`
-- Tests: `tests/`
-- Working agreements: `AGENTS.md`
-- Architectural notes: `CONTEXT.md`
+## Project Structure
 
-Add new modules only when behaviour demands it. Keep abstractions small, and
-capture any security-impacting decision in `CONTEXT.md`.
+```
+src/pulseguard/
+├── __init__.py          # Main exports
+├── cli.py              # CLI interface
+├── core/
+│   ├── password_entry.py  # PasswordEntry dataclass
+│   └── vault.py          # Vault management
+└── config/
+    └── settings.py       # Configuration
+```
 
-## TUI Layout
-The placeholder Textual app mirrors lazygit's split view: a compact navigation
-list on the left and a detail pane on the right. Use it as a guide when adding
-real panels—keep copy short and interactions keyboard-first.
+## License
 
-### Extensibility
-- Panel metadata lives in `pulseguard.tui.panels`; update the registry to add
-  new views or actions.
-- Action implementations sit in `pulseguard.tui.actions` so business logic stays
-  decoupled from rendering.
-- The app (`pulseguard.tui.app`) only coordinates layout and delegates work to
-  the registry—follow this pattern to avoid UI bloat.
-- Styling is generated from `pulseguard.tui.theme`; tweak `MONOKAI_THEME` or add
-  a new theme instance to reskin the UI in one place.
-
-### CI/CD
-- GitLab pipelines use `python:3.11`, install `uv`, and run `uv run pytest --junitxml=junit.xml`.
-- Keep tests fast, deterministic, and focused; match the pipeline locally before opening a merge request.
+MIT
