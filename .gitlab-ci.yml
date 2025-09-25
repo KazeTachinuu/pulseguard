@@ -1,29 +1,24 @@
-# Use Go 1.24.2 Docker image for all jobs
-image: golang:1.24.2
+image: python:3.11
 
-# Define the pipeline stages in order
 stages:
-  - test    
-  - build
+  - test
 
-# Code quality checks and tests
-format:
+variables:
+  UV_INSTALL_DIR: "$CI_PROJECT_DIR/.uv"
+
+before_script:
+  - python -m pip install --upgrade pip
+  - pip install uv
+  - uv venv
+  - uv pip install -e .[dev,test]
+
+test:
   stage: test
   script:
-    # Format Go code and check for formatting issues
-    - go fmt $(go list ./... | grep -v /vendor/)
-    # Run static analysis to catch common mistakes
-    - go vet $(go list ./... | grep -v /vendor/)
-    # Run tests with race condition detection
-    - go test -race $(go list ./... | grep -v /vendor/)
-
-# Compile the application
-compile:
-  stage: build
-  script:
-    - mkdir -p bin
-    - go build -o bin/pulseguard ./cmd/pulseguard
+    - uv run pytest --junitxml=junit.xml
   artifacts:
-    # Save the bin directory as build artifact
+    when: always
+    reports:
+      junit: junit.xml
     paths:
-      - bin
+      - junit.xml
