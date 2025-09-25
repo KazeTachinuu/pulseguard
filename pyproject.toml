@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pulseguard"
+version = "0.1.0"
+description = "PulseGuard terminal password manager"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "PulseGuard Maintainers" }
+]
+dependencies = [
+    "black>=25.9.0",
+    "textual>=0.58,<0.70",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1"
+]
+dev = [
+    "black>=24.0",
+    "ruff>=0.4"
+]
+
+[project.scripts]
+pulseguard = "pulseguard.cli:main"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I", "W"]
+ignore = []
