@@ -1,21 +1,11 @@
 # PulseGuard
 
-A simple password vault manager for storing and managing password entries.
-
-## Features
-
-- **Password Storage**: Store passwords with usernames, URLs, and notes
-- **Simple API**: Easy-to-use vault management
-- **CLI Demo**: Command-line interface with sample data
+A simple password manager with CLI and interactive console.
 
 ## Installation
 
 ```bash
-# Install with uv
 uv pip install -e .
-
-# Or with pip
-pip install -e .
 ```
 
 ## Usage
@@ -23,29 +13,14 @@ pip install -e .
 ### Command Line
 
 ```bash
-# Show help
-pulseguard --help
-
-# List all passwords
-pulseguard list
-
-# Add a new password
-pulseguard add "Gmail" "user@example.com" "password123" --url "https://gmail.com" --notes "Personal email"
-
-# Get password details
-pulseguard get "Gmail"
-
-# Edit password (interactive)
-pulseguard edit "Gmail"
-
-# Delete password
-pulseguard delete "Gmail"
-
-# Search passwords
-pulseguard search "gmail"
-
-# Run demo with sample data
-pulseguard demo
+pulseguard list                           # List passwords
+pulseguard add Gmail user@example.com pwd # Add password
+pulseguard get Gmail                      # Get password details
+pulseguard edit Gmail                     # Edit password
+pulseguard delete Gmail                   # Delete password
+pulseguard search gmail                   # Search passwords
+pulseguard demo                           # Add sample data
+pulseguard                               # Interactive console
 ```
 
 ### Python API
@@ -53,64 +28,44 @@ pulseguard demo
 ```python
 from pulseguard import Vault, PasswordEntry
 
-# Create a vault
 vault = Vault()
-
-# Add a password entry
-entry = PasswordEntry(
-    name="Gmail",
-    username="user@gmail.com",
-    password="mypassword",
-    url="https://gmail.com",
-    notes="Personal email"
-)
+entry = PasswordEntry("Gmail", "user@gmail.com", "password")
 vault.add(entry)
 
 # Get all entries
 entries = vault.get_all()
 
-# Get specific entry
-gmail = vault.get("Gmail")
-
-# Remove entry
-vault.remove("Gmail")
-
-# Search entries
+# Search
 results = vault.search("gmail")
-
-# Count entries
-count = vault.count()
 ```
+
+## Configuration
+
+Set vault file location:
+```bash
+export PULSEGUARD_VAULT_PATH="/path/to/vault.json"
+```
+
+Default: `~/.pulseguard/vault.json`
 
 ## Development
 
 ```bash
-# Install development dependencies
 uv pip install -e .[dev,test]
-
-# Run tests
 uv run pytest
-
-# Format code
-uv run black src tests
-
-# Lint code
 uv run ruff check src tests
+uv run black src tests
 ```
 
 ## Project Structure
 
 ```
 src/pulseguard/
-├── __init__.py          # Main exports
-├── cli.py              # CLI interface
-├── core/
-│   ├── password_entry.py  # PasswordEntry dataclass
-│   └── vault.py          # Vault management
-└── config/
-    └── settings.py       # Configuration
+├── cli.py          # CLI interface
+├── console.py      # Interactive console
+├── config.py       # Configuration
+├── models.py       # Data models
+├── vault.py        # Vault management
+├── operations.py   # CLI operations
+└── messages.py     # User messages
 ```
-
-## License
-
-MIT
