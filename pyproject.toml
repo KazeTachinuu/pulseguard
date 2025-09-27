@@ -11,10 +11,7 @@ requires-python = ">=3.11"
 authors = [
     { name = "PulseGuard Maintainers" }
 ]
-dependencies = [
-    "black>=25.9.0",
-    "textual>=0.58,<0.70",
-]
+dependencies = []
 
 [project.optional-dependencies]
 test = [
@@ -24,7 +21,8 @@ test = [
 ]
 dev = [
     "black>=24.0",
-    "ruff>=0.4"
+    "ruff>=0.4",
+    "mypy>=1.0"
 ]
 
 [project.scripts]
@@ -34,7 +32,6 @@ pulseguard = "pulseguard.cli:main"
 addopts = "-q"
 testpaths = ["tests"]
 pythonpath = ["src"]
-asyncio_mode = "auto"
 
 [tool.black]
 line-length = 88
