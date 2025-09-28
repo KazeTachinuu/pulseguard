@@ -1,4 +1,15 @@
-"""Vault management for PulseGuard."""
+"""Vault management - secure storage and retrieval of password entries.
+
+Why this design:
+- Simple JSON file storage - no complex database setup required
+- Automatic persistence - changes are saved immediately
+- In-memory operations - fast access for interactive use
+- Error handling - graceful handling of corrupted or missing files
+- Search functionality - find passwords by name or username
+
+The vault provides a clean interface for all password operations while
+handling the complexity of file I/O and error recovery internally.
+"""
 
 import json
 import os
@@ -10,39 +21,64 @@ from .models import PasswordEntry
 
 
 class VaultError(Exception):
-    """Base exception for vault operations."""
+    """Base exception for all vault-related errors.
+    
+    Why this hierarchy:
+    - Provides specific error types for different failure modes
+    - Enables targeted error handling in calling code
+    - Makes debugging easier with clear error categories
+    """
 
     pass
 
 
 class VaultNotFoundError(VaultError):
-    """Raised when vault file is not found."""
+    """Raised when vault file doesn't exist.
+    
+    Why this specific error:
+    - Distinguishes between missing file and corrupted file
+    - Enables different handling for first-time setup vs errors
+    """
 
     pass
 
 
 class VaultCorruptedError(VaultError):
-    """Raised when vault file is corrupted."""
+    """Raised when vault file exists but is unreadable.
+    
+    Why this specific error:
+    - Indicates file exists but contains invalid data
+    - Enables recovery suggestions or data migration
+    - Helps users understand the difference from missing file
+    """
 
     pass
 
 
 class Vault:
-    """Simple password vault with JSON persistence.
-
-    Manages password entries with automatic file persistence.
-    All changes are immediately saved to disk.
+    """Password vault with automatic JSON file persistence.
+    
+    Why this design:
+    - In-memory storage provides fast access for interactive use
+    - Automatic persistence ensures data is never lost
+    - JSON format is human-readable and debuggable
+    - Simple interface hides complexity of file I/O and error handling
+    
+    All password operations work on in-memory data, with changes
+    automatically saved to disk for persistence.
     """
 
     def __init__(self, file_path: Optional[str] = None):
-        """Initialize vault with file path.
-
-        Args:
-            file_path: Path to the JSON file for persistence. If None, uses config default.
+        """Initialize vault with optional custom file path.
+        
+        Why this approach:
+        - Optional file_path enables testing with temporary files
+        - Default path from config provides zero-configuration experience
+        - Automatic loading ensures vault is ready to use immediately
         """
         self.file_path = file_path or config.vault_path
-        self.entries: List[PasswordEntry] = []
-        self._load()
+        self.entries: List[PasswordEntry] = []  # In-memory storage for fast access
+        self._load()  # Load existing data from file
 
     def _load(self) -> None:
         """Load entries from JSON file."""

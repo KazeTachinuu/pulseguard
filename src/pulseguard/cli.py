@@ -1,10 +1,18 @@
-"""Command-line interface for PulseGuard."""
+"""Command-line interface - fast, scriptable password management.
+
+Why: Fast access, data-driven parser generation, automatic argument handling.
+Generates parsers from COMMANDS definitions - no duplication with console.
+"""
 
 import argparse
 import sys
-from typing import List
 
-from .commands import generate_help_epilog
+from .commands import (
+    COMMANDS,
+    generate_help_epilog,
+    get_command_handler,
+    get_command_args,
+)
 from .config import config
 from .console import Console
 from .messages import (
@@ -13,20 +21,14 @@ from .messages import (
     ERROR_UNKNOWN_COMMAND,
     INFO_HELP,
 )
-from .operations import (
-    add_password,
-    delete_password,
-    edit_password,
-    get_password,
-    list_passwords,
-    run_demo,
-    search_passwords,
-)
 from .vault import Vault, VaultError
 
 
 def create_parser() -> argparse.ArgumentParser:
-    """Create the argument parser."""
+    """Generate CLI argument parser from command definitions.
+    
+    Why: Commands define their own args, CLI and console stay in sync automatically.
+    """
     parser = argparse.ArgumentParser(
         description="PulseGuard - Simple password manager",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -35,74 +37,68 @@ def create_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    # List command
-    subparsers.add_parser("list", help="List all entries")
+    # Generate subparsers dynamically from COMMANDS
+    for cmd in COMMANDS:
+        subparser = subparsers.add_parser(cmd.name, help=cmd.description)
 
-    # Add command
-    add_parser = subparsers.add_parser("add", help="Add a new entry")
-    add_parser.add_argument("name", help="Entry name")
-    add_parser.add_argument("username", help="Username or email")
-    add_parser.add_argument("password", help="Password")
-    add_parser.add_argument("--url", default="", help="URL for the service")
-    add_parser.add_argument("--notes", default="", help="Notes about the entry")
+        # Add arguments from command definition
+        for arg in cmd.args:
+            arg_name = arg["name"]
+            arg_help = arg["help"]
 
-    # Get command
-    get_parser = subparsers.add_parser("get", help="Get entry details")
-    get_parser.add_argument("name", help="Entry name")
-
-    # Edit command
-    edit_parser = subparsers.add_parser("edit", help="Edit entry (interactive)")
-    edit_parser.add_argument("name", help="Entry name")
-
-    # Delete command
-    delete_parser = subparsers.add_parser("delete", help="Delete an entry")
-    delete_parser.add_argument("name", help="Entry name")
-
-    # Search command
-    search_parser = subparsers.add_parser("search", help="Search entries")
-    search_parser.add_argument("query", help="Search query")
-
-    # Demo command
-    subparsers.add_parser("demo", help="Run demo with sample data")
+            if arg_name.startswith("--"):
+                # Optional argument
+                subparser.add_argument(
+                    arg_name, default=arg.get("default", ""), help=arg_help
+                )
+            else:
+                # Positional argument
+                subparser.add_argument(arg_name, help=arg_help)
 
     return parser
 
 
 def handle_cli_command(vault: Vault, args: argparse.Namespace) -> None:
-    """Handle CLI command execution."""
-    if args.command == "list":
-        list_passwords(vault)
-    elif args.command == "add":
-        add_password(vault, args.name, args.username, args.password, args.url, args.notes)
-    elif args.command == "get":
-        get_password(vault, args.name)
-    elif args.command == "edit":
-        edit_password(vault, args.name)
-    elif args.command == "delete":
-        delete_password(vault, args.name)
-    elif args.command == "search":
-        search_passwords(vault, args.query)
-    elif args.command == "demo":
-        run_demo(vault)
-    else:
+    """Execute a CLI command by dynamically calling its handler.
+    
+    Why: No if/elif chains, automatic argument passing, consistent error handling.
+    """
+    handler = get_command_handler(args.command)
+    if not handler:
         print(ERROR_UNKNOWN_COMMAND.format(command=args.command))
         print(INFO_HELP)
         sys.exit(1)
 
+    # Build argument list for handler function
+    cmd_args = get_command_args(args.command)
+    handler_args = [vault]  # All handlers expect vault as first argument
+
+    # Add arguments based on command definition
+    for arg in cmd_args:
+        arg_name = arg["name"].lstrip("-")  # Remove -- prefix for optional args
+        if hasattr(args, arg_name):
+            handler_args.append(getattr(args, arg_name))
+
+    # Call handler with all arguments
+    handler(*handler_args)
+
 
 def main() -> None:
-    """Main entry point for PulseGuard."""
+    """Main entry point - handles both CLI and interactive modes.
+    
+    Why: Single entry point, no command = interactive, command = CLI mode.
+    """
     parser = create_parser()
 
     try:
         args = parser.parse_args()
 
         if not args.command:
-            # Start interactive console
+            # No command = interactive console
             Console().cmdloop()
             return
 
-        # CLI mode
+        # Command provided = CLI mode
         try:
             vault = Vault()
             handle_cli_command(vault, args)

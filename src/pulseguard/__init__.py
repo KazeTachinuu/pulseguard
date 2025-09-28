@@ -1,6 +1,7 @@
-"""PulseGuard - Simple password manager.
+"""PulseGuard - A minimal, secure password manager.
 
-A minimal, secure password manager with CLI and interactive console.
+Why: Traditional password managers are bloated. This one is simple, fast, and scriptable.
+Design: Zero config, data-driven commands, Unix philosophy.
 """
 
 from .models import PasswordEntry

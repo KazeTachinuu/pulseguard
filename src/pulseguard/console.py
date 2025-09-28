@@ -1,231 +1,145 @@
-"""Interactive console for PulseGuard."""
+"""Interactive console - discoverable, user-friendly interface.
+
+Why: Helps users discover commands, uses same system as CLI, handles aliases.
+Stays in sync with CLI automatically - no duplication.
+"""
 
 import cmd
-from typing import List
 
-from .commands import generate_console_help
+from .commands import (
+    COMMANDS,
+    generate_console_help,
+    get_command_handler,
+    get_command_args,
+    resolve_command_name,
+)
 from .config import config
 from .messages import (
     CONSOLE_INTRO,
     CONSOLE_PROMPT,
-    ERROR_NOT_FOUND,
     ERROR_USAGE_ADD,
-    ERROR_USAGE_DELETE,
-    ERROR_USAGE_EDIT,
-    ERROR_USAGE_GET,
-    ERROR_USAGE_SEARCH,
-    INFO_FOUND_COUNT,
-    INFO_FOUND_MATCHING,
     INFO_GOODBYE,
-    INFO_NO_MATCHES,
-    INFO_NO_ENTRIES,
-    SUCCESS_ADDED,
-    SUCCESS_DELETED,
 )
-from .models import PasswordEntry
-from .vault import Vault, VaultError
+from .vault import Vault
 
 
 class Console(cmd.Cmd):
-    """Interactive console for password management.
-
-    Provides a command-line interface for managing passwords.
-    Type 'help' to see available commands.
+    """Interactive console for discoverable password management.
+    
+    Why: cmd.Cmd provides robust parsing, dynamic resolution enables aliases.
+    Users can type 'list' or 'ls' - both work identically.
     """
 
     def __init__(self, vault: Vault = None):
-        """Initialize the console with a vault instance."""
+        """Initialize console with optional vault instance.
+        
+        Why: Optional vault enables testing, default provides zero-config experience.
+        """
         super().__init__()
         self.vault = vault or Vault()
         self.intro = CONSOLE_INTRO
         self.prompt = CONSOLE_PROMPT
 
-    def do_list(self, args: str) -> None:
-        """List all passwords.
-
-        Usage: list
+    def default(self, line: str) -> None:
+        """Handle all commands and aliases through dynamic resolution.
+        
+        Why: Single method handles all commands, enables aliases, uses same system as CLI.
         """
-        self._list_passwords()
-
-    def do_add(self, args: str) -> None:
-        """Add a new password.
-
-        Usage: add <name> <username> <password> [--url URL] [--notes NOTES]
-        """
-        parts = args.split()
-        if len(parts) < 3:
-            print(ERROR_USAGE_ADD)
+        if not line.strip():
             return
 
-        name, username, password = parts[0], parts[1], parts[2]
-        url, notes = "", ""
+        # Parse command and arguments from user input
+        parts = line.split()
+        command_name = parts[0]
+        args = " ".join(parts[1:]) if len(parts) > 1 else ""
 
-        # Parse optional arguments
-        i = 3
-        while i < len(parts):
-            if parts[i] == "--url" and i + 1 < len(parts):
-                url = parts[i + 1]
-                i += 2
-            elif parts[i] == "--notes" and i + 1 < len(parts):
-                notes = parts[i + 1]
-                i += 2
-            else:
-                i += 1
+        # Resolve command name or alias to canonical name
+        # This enables users to type either 'list' or 'ls'
+        resolved_name = resolve_command_name(command_name)
+        if not resolved_name:
+            print(f"*** Unknown syntax: {command_name}")
+            return
 
+        # Get the handler function for this command
+        handler = get_command_handler(resolved_name)
+        if not handler:
+            print(f"*** Unknown syntax: {command_name}")
+            return
+
+        # Build argument list for handler function
+        cmd_args = get_command_args(resolved_name)
+        handler_args = [self.vault]  # All handlers expect vault as first argument
+
+        if resolved_name == "add":
+            # Special handling for add command - it has complex optional arguments
+            # This is the only command that needs custom argument parsing
+            add_parts = args.split()
+            if len(add_parts) < 3:
+                print(ERROR_USAGE_ADD)
+                return
+
+            name, username, password = add_parts[0], add_parts[1], add_parts[2]
+            url, notes = "", ""
+
+            # Parse optional --url and --notes arguments
+            i = 3
+            while i < len(add_parts):
+                if add_parts[i] == "--url" and i + 1 < len(add_parts):
+                    url = add_parts[i + 1]
+                    i += 2
+                elif add_parts[i] == "--notes" and i + 1 < len(add_parts):
+                    notes = add_parts[i + 1]
+                    i += 2
+                else:
+                    i += 1
+
+            handler_args.extend([name, username, password, url, notes])
+        else:
+            # For other commands, pass arguments in order
+            # Most commands take a single argument (name or query)
+            for arg in cmd_args:
+                arg_name = arg["name"].lstrip("-")
+                if arg_name in ["name", "query"] and args.strip():
+                    handler_args.append(args.strip())
+                    break
+
+        # Execute the command handler
+        # This provides the same behavior as CLI mode
         try:
-            entry = PasswordEntry(
-                name=name, username=username, password=password, url=url, notes=notes
-            )
-            self.vault.add(entry)
-            print(SUCCESS_ADDED.format(name=name))
-        except VaultError as e:
-            print(f"Error adding password: {e}")
-
-    def do_get(self, args: str) -> None:
-        """Get password details.
-
-        Usage: get <name>
-        """
-        if not args.strip():
-            print(ERROR_USAGE_GET)
-            return
-
-        self._get_password(args.strip())
-
-    def do_edit(self, args: str) -> None:
-        """Edit password (interactive).
-
-        Usage: edit <name>
-        """
-        if not args.strip():
-            print(ERROR_USAGE_EDIT)
-            return
-
-        self._edit_password(args.strip())
-
-    def do_delete(self, args: str) -> None:
-        """Delete a password.
-
-        Usage: delete <name>
-        """
-        if not args.strip():
-            print(ERROR_USAGE_DELETE)
-            return
-
-        self._delete_password(args.strip())
-
-    def do_search(self, args: str) -> None:
-        """Search passwords.
-
-        Usage: search <query>
-        """
-        if not args.strip():
-            print(ERROR_USAGE_SEARCH)
-            return
-
-        self._search_passwords(args.strip())
+            handler(*handler_args)
+        except Exception as e:
+            print(f"Error executing command: {e}")
 
     def do_help(self, args: str) -> None:
-        """Show help information.
-
-        Usage: help [command]
+        """Show help information for commands and aliases.
+        
+        Why: Uses cmd.Cmd's built-in help for specific commands, custom help for general.
         """
         if args.strip():
+            # Show help for specific command using cmd.Cmd's built-in help
             super().do_help(args)
         else:
+            # Show general help with aliases
             print(generate_console_help())
 
     def do_quit(self, args: str) -> bool:
-        """Quit the console.
-
-        Usage: quit
+        """Quit the console with friendly goodbye message.
+        
+        Why: Clear exit mechanism, friendly message, returns True to signal exit.
         """
         print(INFO_GOODBYE)
         return True
 
     def do_exit(self, args: str) -> bool:
-        """Exit the console.
-
-        Usage: exit
+        """Exit the console - alias for quit command.
+        
+        Why: Some users expect 'exit', others 'quit' - provides flexibility.
         """
         return self.do_quit(args)
 
     def emptyline(self) -> None:
-        """Do nothing on empty input line."""
+        """Handle empty input lines gracefully.
+        
+        Why: Prevents cmd.Cmd from repeating last command, clean behavior.
+        """
         pass
-
-    def _list_passwords(self) -> None:
-        """List all entries."""
-        if not self.vault.entries:
-            print(INFO_NO_ENTRIES)
-            return
-
-        print(INFO_FOUND_COUNT.format(count=len(self.vault.entries)))
-        for i, entry in enumerate(self.vault.entries, 1):
-            print(f"{i}. {entry.name} - {entry.username}")
-
-    def _get_password(self, name: str) -> None:
-        """Get password details."""
-        entry = self.vault.get(name)
-        if entry:
-            print(f"Password: {entry.name}")
-            print(f"Username: {entry.username}")
-            print(f"Password: {entry.password}")
-            if entry.url:
-                print(f"URL: {entry.url}")
-            if entry.notes:
-                print(f"Notes: {entry.notes}")
-        else:
-            print(ERROR_NOT_FOUND.format(name=name))
-
-    def _edit_password(self, name: str) -> None:
-        """Edit password interactively."""
-        entry = self.vault.get(name)
-        if not entry:
-            print(ERROR_NOT_FOUND.format(name=name))
-            return
-
-        print(f"Editing password '{name}'. Press Enter to keep current value.")
-
-        # Edit username
-        new_username = input(f"Username [{entry.username}]: ").strip()
-        if new_username:
-            entry.username = new_username
-
-        # Edit password
-        new_password = input("Password [***]: ").strip()
-        if new_password:
-            entry.password = new_password
-
-        # Edit URL
-        new_url = input(f"URL [{entry.url}]: ").strip()
-        if new_url is not None:  # Allow empty string to clear URL
-            entry.url = new_url
-
-        # Edit notes
-        new_notes = input(f"Notes [{entry.notes}]: ").strip()
-        if new_notes is not None:  # Allow empty string to clear notes
-            entry.notes = new_notes
-
-        try:
-            self.vault.add(entry)
-            print(SUCCESS_ADDED.format(name=name))
-        except VaultError as e:
-            print(f"Error updating password: {e}")
-
-    def _delete_password(self, name: str) -> None:
-        """Delete a password."""
-        if self.vault.remove(name):
-            print(SUCCESS_DELETED.format(name=name))
-        else:
-            print(ERROR_NOT_FOUND.format(name=name))
-
-    def _search_passwords(self, query: str) -> None:
-        """Search passwords."""
-        results = self.vault.search(query)
-        if results:
-            print(INFO_FOUND_MATCHING.format(count=len(results), query=query))
-            for entry in results:
-                print(f"  {entry.name} - {entry.username}")
-        else:
-            print(INFO_NO_MATCHES.format(query=query))
