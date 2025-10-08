@@ -6,12 +6,16 @@ import secrets
 from typing import Tuple
 
 from cryptography.fernet import Fernet, InvalidToken
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-PBKDF2_ITERATIONS = 600_000
-SALT_LENGTH = 32
-KEY_LENGTH = 32
+# Argon2id parameters (OWASP recommendations for password storage)
+ARGON2_TIME_COST = 2  # Number of iterations
+ARGON2_MEMORY_COST = 65536  # 64 MiB
+ARGON2_PARALLELISM = 4  # Number of parallel threads
+ARGON2_HASH_LENGTH = 32  # 32 bytes for Fernet key
+ARGON2_SALT_LENGTH = 16  # 16 bytes salt
+
+SALT_LENGTH = ARGON2_SALT_LENGTH
+KEY_LENGTH = ARGON2_HASH_LENGTH
 
 
 class CryptoError(Exception):
@@ -35,18 +39,23 @@ def generate_salt() -> bytes:
 
 
 def derive_key(master_password: str, salt: bytes) -> bytes:
-    """Derive encryption key from master password using PBKDF2-HMAC-SHA256."""
+    """Derive encryption key from master password using Argon2id."""
     try:
+        from argon2.low_level import hash_secret_raw, Type
+
         password_bytes = master_password.encode('utf-8')
 
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=KEY_LENGTH,
+        # Use Argon2id for key derivation
+        key = hash_secret_raw(
+            secret=password_bytes,
             salt=salt,
-            iterations=PBKDF2_ITERATIONS,
+            time_cost=ARGON2_TIME_COST,
+            memory_cost=ARGON2_MEMORY_COST,
+            parallelism=ARGON2_PARALLELISM,
+            hash_len=ARGON2_HASH_LENGTH,
+            type=Type.ID,  # Argon2id variant
         )
 
-        key = kdf.derive(password_bytes)
         return key
     except Exception as e:
         raise CryptoError(f"Key derivation failed: {e}") from e

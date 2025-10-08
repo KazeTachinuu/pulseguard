@@ -49,3 +49,5 @@ Thumbs.db
 # PulseGuard specific
 *.json
 .vault/
+.claude
+.coverage

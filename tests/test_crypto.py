@@ -41,9 +41,9 @@ class TestSaltGeneration:
     """Tests for cryptographically secure salt generation."""
 
     def test_salt_generation_length(self):
-        """Verify salt is 32 bytes (256 bits) as specified."""
+        """Verify salt is 16 bytes (128 bits) as specified for Argon2."""
         salt = generate_salt()
-        assert len(salt) == 32, "Salt must be 32 bytes for security"
+        assert len(salt) == 16, "Salt must be 16 bytes for Argon2"
 
     def test_salt_generation_type(self):
         """Verify salt is returned as bytes."""
@@ -64,16 +64,16 @@ class TestSaltGeneration:
         salt = generate_salt()
 
         # Salt should not be all zeros
-        assert salt != b"\x00" * 32, "Salt must not be all zeros"
+        assert salt != b"\x00" * 16, "Salt must not be all zeros"
 
         # Salt should have good distribution of bytes
-        # At least 20 unique byte values in 32 bytes (reasonable entropy check)
+        # At least 12 unique byte values in 16 bytes (reasonable entropy check)
         unique_bytes = len(set(salt))
-        assert unique_bytes >= 20, "Salt must have high entropy"
+        assert unique_bytes >= 12, "Salt must have high entropy"
 
 
 class TestKeyDerivation:
-    """Tests for PBKDF2-based key derivation from passwords."""
+    """Tests for Argon2id-based key derivation from passwords."""
 
     def test_key_derivation_length(self):
         """Verify derived key is 32 bytes (256 bits) as specified."""
