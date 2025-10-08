@@ -60,9 +60,9 @@ def populated_console(temp_vault):
 class TestConsoleInitialization:
     """Test Console initialization."""
 
-    def test_console_init_default_vault(self):
+    def test_console_init_default_vault(self, temp_vault):
         """Test console initialization with default vault."""
-        console = Console()
+        console = Console(vault=temp_vault)
         assert console.vault is not None
         assert isinstance(console.vault, Vault)
 
@@ -71,15 +71,15 @@ class TestConsoleInitialization:
         console = Console(vault=temp_vault)
         assert console.vault is temp_vault
 
-    def test_console_has_intro_message(self):
+    def test_console_has_intro_message(self, temp_vault):
         """Test that console has intro message."""
-        console = Console()
+        console = Console(vault=temp_vault)
         assert console.intro is not None
         assert "PulseGuard" in console.intro
 
-    def test_console_has_prompt(self):
+    def test_console_has_prompt(self, temp_vault):
         """Test that console has prompt."""
-        console = Console()
+        console = Console(vault=temp_vault)
         assert console.prompt is not None
         assert "pulseguard>" in console.prompt
 
