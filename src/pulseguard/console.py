@@ -1,7 +1,7 @@
 """Interactive console for PulseGuard."""
 
 import cmd
-from typing import Any, List, Optional
+from typing import Any, List
 
 from .commands import (
     generate_console_help,
@@ -21,10 +21,10 @@ from .vault import Vault
 class Console(cmd.Cmd):
     """Interactive console for password management."""
 
-    def __init__(self, vault: Optional[Vault] = None):
-        """Initialize console with optional vault instance."""
+    def __init__(self, vault: Vault):
+        """Initialize console with vault instance."""
         super().__init__()
-        self.vault = vault or Vault()
+        self.vault = vault
         self.intro = CONSOLE_INTRO
         self.prompt = CONSOLE_PROMPT
 

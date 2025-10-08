@@ -101,41 +101,60 @@ class TestCompleteUserWorkflows:
         """FUNCTIONAL: Changes made via CLI are visible to Vault API and vice versa.
 
         This verifies that the CLI and direct Vault API work on the same data:
-        1. Create vault via API
+        1. Create encrypted vault via API
         2. Add via Vault API
         3. Read via CLI
         4. Update via CLI
         5. Read via Vault API
         """
+        master_password = "test_password_123"
+
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
 
-            # Create vault via API
-            with pytest.warns(VaultPlaintextWarning):
-                vault = Vault(file_path=vault_path, master_password=None)
-                vault.add(PasswordEntry("Gmail", "user", "VaultPassword123!"))
+            # Create encrypted vault via API
+            vault = Vault(file_path=vault_path, master_password=master_password)
+            vault.add(PasswordEntry("Gmail", "user", "VaultPassword123!"))
 
-            # Read via CLI
-            result = run_cli(["get", "Gmail"], vault_path)
+            # Read via CLI (needs password input)
+            env = os.environ.copy()
+            env["PULSEGUARD_VAULT_PATH"] = vault_path
+            result = subprocess.run(
+                [sys.executable, "-m", "pulseguard", "get", "Gmail"],
+                capture_output=True,
+                text=True,
+                env=env,
+                input=f"{master_password}\n"
+            )
             assert result.returncode == 0
             assert "VaultPassword123!" in result.stdout
 
             # Update via CLI
-            result = run_cli(["add", "Gmail", "user", "CLIPassword456!"], vault_path)
+            result = subprocess.run(
+                [sys.executable, "-m", "pulseguard", "add", "Gmail", "user", "CLIPassword456!"],
+                capture_output=True,
+                text=True,
+                env=env,
+                input=f"{master_password}\n"
+            )
             assert result.returncode == 0
 
             # Read via Vault API to verify CLI update
-            with pytest.warns(VaultPlaintextWarning):
-                vault2 = Vault(file_path=vault_path, master_password=None)
+            vault2 = Vault(file_path=vault_path, master_password=master_password)
             entry = vault2.get("Gmail")
             assert entry.password == "CLIPassword456!"
 
             # Add another via CLI
-            run_cli(["add", "GitHub", "dev", "CLIGitHub789!"], vault_path)
+            subprocess.run(
+                [sys.executable, "-m", "pulseguard", "add", "GitHub", "dev", "CLIGitHub789!"],
+                capture_output=True,
+                text=True,
+                env=env,
+                input=f"{master_password}\n"
+            )
 
             # List via Vault API should show both
-            with pytest.warns(VaultPlaintextWarning):
-                vault3 = Vault(file_path=vault_path, master_password=None)
+            vault3 = Vault(file_path=vault_path, master_password=master_password)
             assert vault3.count() == 2
             assert vault3.get("Gmail") is not None
             assert vault3.get("GitHub") is not None

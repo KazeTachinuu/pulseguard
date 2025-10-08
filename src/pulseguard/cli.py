@@ -4,11 +4,7 @@ import argparse
 import os
 import sys
 
-from .auth import (
-    prompt_create_master_password,
-    prompt_unlock_vault,
-    should_encrypt_vault,
-)
+from .auth import prompt_create_master_password, prompt_unlock_vault
 from .commands import (
     COMMANDS,
     generate_help_epilog,
@@ -72,50 +68,50 @@ def handle_cli_command(vault: Vault, args: argparse.Namespace) -> None:
 
 
 def initialize_vault() -> Vault:
-    """Initialize vault with master password handling."""
+    """Initialize vault - create new or unlock existing."""
     from .config import config
 
     vault_exists = os.path.exists(config.vault_path)
-    master_password = None
 
     if not vault_exists:
-        if should_encrypt_vault():
-            try:
-                master_password = prompt_create_master_password()
-            except (KeyboardInterrupt, EOFError, ValueError) as e:
-                print(f"\nError setting master password: {e}", file=sys.stderr)
-                print("Vault creation cancelled", file=sys.stderr)
-                sys.exit(1)
-    else:
+        # New vault - always encrypted
         try:
-            test_vault = Vault(master_password=None)
-            return test_vault
-        except VaultDecryptionError:
-            attempts = 0
-            max_attempts = 3
+            master_password = prompt_create_master_password()
+            vault = Vault(master_password=master_password)
+            print("\n✓ Vault created successfully")
+            print(f"  Location: {config.vault_path}\n")
+            return vault
+        except (KeyboardInterrupt, EOFError, ValueError) as e:
+            print(f"\nVault creation cancelled: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        # Existing vault - unlock it
+        attempts = 0
+        max_attempts = 3
 
-            while attempts < max_attempts:
-                try:
-                    master_password = prompt_unlock_vault()
-                    vault = Vault(master_password=master_password)
-                    print("Vault unlocked successfully")
-                    return vault
-                except VaultDecryptionError:
-                    attempts += 1
-                    remaining = max_attempts - attempts
-                    if remaining > 0:
-                        print(
-                            f"\nIncorrect password. {remaining} attempts remaining.\n",
-                            file=sys.stderr,
-                        )
-                    else:
-                        print("\nMaximum password attempts exceeded", file=sys.stderr)
-                        sys.exit(1)
-                except (KeyboardInterrupt, EOFError):
-                    print("\nVault unlock cancelled", file=sys.stderr)
+        while attempts < max_attempts:
+            try:
+                master_password = prompt_unlock_vault()
+                vault = Vault(master_password=master_password)
+                print("✓ Vault unlocked\n")
+                return vault
+            except VaultDecryptionError:
+                attempts += 1
+                remaining = max_attempts - attempts
+                if remaining > 0:
+                    print(
+                        f"\n✗ Incorrect password ({remaining} attempts remaining)\n",
+                        file=sys.stderr,
+                    )
+                else:
+                    print("\n✗ Maximum attempts exceeded", file=sys.stderr)
                     sys.exit(1)
+            except (KeyboardInterrupt, EOFError):
+                print("\nVault unlock cancelled", file=sys.stderr)
+                sys.exit(1)
 
-    return Vault(master_password=master_password)
+        # Should never reach here but satisfy type checker
+        sys.exit(1)
 
 
 def main() -> None:
