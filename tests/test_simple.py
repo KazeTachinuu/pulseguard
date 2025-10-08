@@ -3,9 +3,9 @@
 Tests the core functionality of the password manager.
 """
 
-import tempfile
 import os
-import pytest
+import tempfile
+
 from pulseguard import PasswordEntry, Vault
 
 
