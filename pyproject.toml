@@ -11,13 +11,14 @@ requires-python = ">=3.11"
 authors = [
     { name = "PulseGuard Maintainers" }
 ]
-dependencies = []
+dependencies = [
+    "cryptography>=41.0.0",
+]
 
 [project.optional-dependencies]
 test = [
     "pytest>=7.4",
     "pytest-cov>=4.1",
-    "pytest-asyncio>=0.23",
 ]
 dev = [
     "black>=24.0",
