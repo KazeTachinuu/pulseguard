@@ -1,11 +1,7 @@
-"""Command system - data-driven architecture for CLI and console.
-
-Why: Eliminates duplication, makes adding commands trivial, ensures consistency.
-Contains: CLI parsers, help text, handlers, aliases - all in one place.
-"""
+"""Command system - data-driven architecture for CLI and console."""
 
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Dict, Any
+from typing import Any, Callable, Dict, List, Optional
 
 from .operations import (
     add_password,
@@ -20,23 +16,18 @@ from .operations import (
 
 @dataclass
 class Command:
-    """Complete command specification - everything needed to implement a command.
-    
-    Why: All metadata in one place, function pointer pattern, automatic CLI generation.
-    Adding a new command = add one Command to COMMANDS list.
-    """
+    """Complete command specification."""
 
-    name: str  # Canonical name
-    description: str  # Help text
-    usage: str  # Usage pattern
-    example: str  # Example command
-    console_help: str  # Formatted help line
-    handler: Callable  # Function that does the work
-    args: List[Dict[str, Any]]  # CLI argument specs
-    aliases: List[str]  # User shortcuts (ls, g, s, etc.)
+    name: str
+    description: str
+    usage: str
+    example: str
+    console_help: str
+    handler: Callable
+    args: List[Dict[str, Any]]
+    aliases: List[str]
 
 
-# Command definitions
 COMMANDS = [
     Command(
         name="list",
@@ -118,10 +109,7 @@ COMMANDS = [
 
 
 def generate_help_epilog() -> str:
-    """Generate CLI help examples from command definitions.
-    
-    Why: Keeps help in sync with commands automatically, prevents documentation drift.
-    """
+    """Generate CLI help examples from command definitions."""
     lines = ["Examples:"]
     lines.append("  pulseguard                    # Start interactive console")
 
@@ -132,10 +120,7 @@ def generate_help_epilog() -> str:
 
 
 def generate_console_help() -> str:
-    """Generate console help text with aliases.
-    
-    Why: Shows aliases inline, stays in sync with commands automatically.
-    """
+    """Generate console help text with aliases."""
     lines = ["Available commands:"]
 
     for cmd in COMMANDS:
@@ -156,36 +141,24 @@ def generate_console_help() -> str:
 
 
 def get_command(name: str) -> Optional[Command]:
-    """Find a command by its canonical name.
-    
-    Why: Clean interface, safe error handling, centralizes lookup logic.
-    """
+    """Find a command by its canonical name."""
     return next((cmd for cmd in COMMANDS if cmd.name == name), None)
 
 
 def get_command_handler(name: str) -> Optional[Callable]:
-    """Extract the handler function for a command.
-    
-    Why: Separates lookup from extraction, enables dynamic dispatch, type safety.
-    """
+    """Extract the handler function for a command."""
     cmd = get_command(name)
     return cmd.handler if cmd else None
 
 
 def get_command_args(name: str) -> List[Dict[str, Any]]:
-    """Extract argument specifications for a command.
-    
-    Why: Enables dynamic CLI parser generation, keeps args with command metadata.
-    """
+    """Extract argument specifications for a command."""
     cmd = get_command(name)
     return cmd.args if cmd else []
 
 
 def get_command_by_alias(alias: str) -> Optional[Command]:
-    """Find a command by one of its aliases.
-    
-    Why: Enables user shortcuts (ls, g, s), separates alias resolution from canonical lookup.
-    """
+    """Find a command by one of its aliases."""
     for cmd in COMMANDS:
         if alias in cmd.aliases:
             return cmd
@@ -193,14 +166,9 @@ def get_command_by_alias(alias: str) -> Optional[Command]:
 
 
 def resolve_command_name(name_or_alias: str) -> Optional[str]:
-    """Convert any command name or alias to its canonical name.
-    
-    Why: Unified resolution for CLI and console, handles both names and aliases transparently.
-    """
-    # Check canonical names first (more common)
+    """Convert any command name or alias to its canonical name."""
     if get_command(name_or_alias):
         return name_or_alias
-    
-    # Fall back to alias resolution
+
     cmd = get_command_by_alias(name_or_alias)
     return cmd.name if cmd else None

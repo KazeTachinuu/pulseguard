@@ -1,19 +1,13 @@
 """CLI operations for PulseGuard."""
 
-from typing import List
 
 from .messages import (
     DEMO_ENTRIES,
     ERROR_NOT_FOUND,
-    ERROR_USAGE_ADD,
-    ERROR_USAGE_DELETE,
-    ERROR_USAGE_EDIT,
-    ERROR_USAGE_GET,
-    ERROR_USAGE_SEARCH,
     INFO_FOUND_COUNT,
     INFO_FOUND_MATCHING,
-    INFO_NO_MATCHES,
     INFO_NO_ENTRIES,
+    INFO_NO_MATCHES,
     SUCCESS_ADDED,
     SUCCESS_DELETED,
 )
@@ -87,12 +81,12 @@ def edit_password(vault: Vault, name: str) -> None:
 
     # Edit URL
     new_url = input(f"URL [{entry.url}]: ").strip()
-    if new_url is not None:  # Allow empty string to clear URL
+    if new_url:  # Only update if non-empty
         entry.url = new_url
 
     # Edit notes
     new_notes = input(f"Notes [{entry.notes}]: ").strip()
-    if new_notes is not None:  # Allow empty string to clear notes
+    if new_notes:  # Only update if non-empty
         entry.notes = new_notes
 
     try:
@@ -132,5 +126,6 @@ def run_demo(vault: Vault) -> None:
 
     print(f"\nDemo complete! Added {len(DEMO_ENTRIES)} sample passwords.")
     print(
-        "Use 'pulseguard list' to see them or 'pulseguard' to start the interactive console."
+        "Use 'pulseguard list' to see them or 'pulseguard' to start the "
+        "interactive console."
     )

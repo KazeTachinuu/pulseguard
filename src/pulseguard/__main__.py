@@ -1,7 +1,4 @@
-"""Main entry point for pulseguard module.
-
-This allows running the module with: python -m pulseguard
-"""
+"""Main entry point for pulseguard module."""
 
 from .cli import main
 
