@@ -1,0 +1,26 @@
+#!/bin/bash
+# Pre-commit hook: Auto-format code with black before committing
+
+echo "Running pre-commit checks..."
+
+# Get list of Python files being committed
+FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$')
+
+if [ -z "$FILES" ]; then
+    echo "No Python files to check."
+    exit 0
+fi
+
+# Run black on staged Python files
+echo "Auto-formatting with black..."
+uv run black $FILES
+
+# Run ruff to check for issues
+echo "Checking code quality with ruff..."
+uv run ruff check --fix $FILES
+
+# Re-stage the formatted files
+git add $FILES
+
+echo "✓ Pre-commit checks passed!"
+exit 0

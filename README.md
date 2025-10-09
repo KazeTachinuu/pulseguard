@@ -52,7 +52,14 @@ Default: `~/.pulseguard/vault.json`
 
 ```bash
 uv pip install -e .[dev,test]
+
+# Install git hooks (auto-format on commit)
+./setup-hooks.sh
+
+# Run tests
 uv run pytest
+
+# Manual formatting
 uv run ruff check src tests
 uv run black src tests
 ```

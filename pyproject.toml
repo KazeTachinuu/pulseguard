@@ -35,10 +35,32 @@ addopts = "-q"
 testpaths = ["tests"]
 pythonpath = ["src"]
 
+[tool.coverage.run]
+source = ["src/pulseguard"]
+omit = ["*/tests/*", "*/__pycache__/*"]
+branch = true
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
 [tool.black]
 line-length = 88
 
 [tool.ruff]
 line-length = 88
+
+[tool.ruff.lint]
 select = ["E", "F", "I", "W"]
 ignore = []
