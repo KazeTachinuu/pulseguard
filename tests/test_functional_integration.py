@@ -17,7 +17,7 @@ import tempfile
 import pytest
 
 from pulseguard.models import PasswordEntry
-from pulseguard.vault import Vault, VaultDecryptionError, VaultPlaintextWarning
+from pulseguard.vault import Vault, VaultDecryptionError
 
 
 def run_cli(args, vault_path, env=None):
@@ -78,7 +78,9 @@ class TestCompleteUserWorkflows:
 
             # Day 4: User updates Gmail password (security rotation)
             vault4 = Vault(file_path=vault_path)
-            vault4.add(PasswordEntry("Gmail", "personal@gmail.com", "NewSecurePass999!"))
+            vault4.add(
+                PasswordEntry("Gmail", "personal@gmail.com", "NewSecurePass999!")
+            )
 
             # Verify old password is gone
             gmail_updated = vault4.get("Gmail")
@@ -124,18 +126,26 @@ class TestCompleteUserWorkflows:
                 capture_output=True,
                 text=True,
                 env=env,
-                input=f"{master_password}\n"
+                input=f"{master_password}\n",
             )
             assert result.returncode == 0
             assert "VaultPassword123!" in result.stdout
 
             # Update via CLI
             result = subprocess.run(
-                [sys.executable, "-m", "pulseguard", "add", "Gmail", "user", "CLIPassword456!"],
+                [
+                    sys.executable,
+                    "-m",
+                    "pulseguard",
+                    "add",
+                    "Gmail",
+                    "user",
+                    "CLIPassword456!",
+                ],
                 capture_output=True,
                 text=True,
                 env=env,
-                input=f"{master_password}\n"
+                input=f"{master_password}\n",
             )
             assert result.returncode == 0
 
@@ -146,11 +156,19 @@ class TestCompleteUserWorkflows:
 
             # Add another via CLI
             subprocess.run(
-                [sys.executable, "-m", "pulseguard", "add", "GitHub", "dev", "CLIGitHub789!"],
+                [
+                    sys.executable,
+                    "-m",
+                    "pulseguard",
+                    "add",
+                    "GitHub",
+                    "dev",
+                    "CLIGitHub789!",
+                ],
                 capture_output=True,
                 text=True,
                 env=env,
-                input=f"{master_password}\n"
+                input=f"{master_password}\n",
             )
 
             # List via Vault API should show both
@@ -236,13 +254,15 @@ class TestCompleteUserWorkflows:
             # Load plaintext vault (will warn)
             with pytest.warns():
                 vault_migrate = Vault(file_path=vault_path, master_password=None)
-                old_count = vault_migrate.count()
+                vault_migrate.count()
 
                 # Get all entries before migration
                 old_entries = vault_migrate.get_all()
 
             # Create encrypted vault and migrate data
-            vault_encrypted = Vault(file_path=vault_path, master_password=master_password)
+            vault_encrypted = Vault(
+                file_path=vault_path, master_password=master_password
+            )
 
             # Manually migrate entries (in real app, this would be automatic)
             for entry in old_entries:

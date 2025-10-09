@@ -71,9 +71,7 @@ class TestCommandDataStructure:
                     alias not in all_names
                 ), f"Alias '{alias}' conflicts with command name"
                 # Alias should not be duplicated
-                assert (
-                    alias not in all_aliases
-                ), f"Alias '{alias}' is duplicated"
+                assert alias not in all_aliases, f"Alias '{alias}' is duplicated"
                 all_aliases.add(alias)
 
     def test_command_handlers_are_functions(self):
@@ -301,9 +299,9 @@ class TestResolveCommandName:
 
         for alias, expected_name in expected_resolutions.items():
             resolved = resolve_command_name(alias)
-            assert resolved == expected_name, (
-                f"Alias '{alias}' didn't resolve to '{expected_name}'"
-            )
+            assert (
+                resolved == expected_name
+            ), f"Alias '{alias}' didn't resolve to '{expected_name}'"
 
     def test_resolve_nonexistent_name(self):
         """Test resolving nonexistent command/alias."""
@@ -433,9 +431,9 @@ class TestCommandIntegrity:
     def test_command_examples_valid(self):
         """Test that command examples start with 'pulseguard'."""
         for cmd in COMMANDS:
-            assert cmd.example.startswith("pulseguard"), (
-                f"Invalid example for {cmd.name}"
-            )
+            assert cmd.example.startswith(
+                "pulseguard"
+            ), f"Invalid example for {cmd.name}"
 
     def test_command_usage_patterns(self):
         """Test that usage patterns start with command name."""

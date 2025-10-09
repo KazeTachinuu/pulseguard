@@ -46,12 +46,10 @@ def populated_vault(temp_vault):
     """Create a vault with sample entries."""
     entries = [
         PasswordEntry(
-            "Gmail", "user@gmail.com", "pass123", "https://gmail.com",
-            "Work email"
+            "Gmail", "user@gmail.com", "pass123", "https://gmail.com", "Work email"
         ),
         PasswordEntry(
-            "GitHub", "developer", "gh_token", "https://github.com",
-            "Dev account"
+            "GitHub", "developer", "gh_token", "https://github.com", "Dev account"
         ),
         PasswordEntry("Twitter", "user@twitter.com", "tweet_pass", "", ""),
     ]
@@ -131,7 +129,7 @@ class TestAddPassword:
             "fulluser",
             "fullpass",
             url="https://complete.com",
-            notes="Complete entry"
+            notes="Complete entry",
         )
         captured = capsys.readouterr()
         assert "Added entry 'CompleteSite' successfully" in captured.out
@@ -213,8 +211,8 @@ class TestEditPassword:
         assert "Entry 'NonExistent' not found" in captured.out
 
     @patch(
-        'builtins.input',
-        side_effect=['newuser', 'newpass', 'https://new.com', 'New notes']
+        "builtins.input",
+        side_effect=["newuser", "newpass", "https://new.com", "New notes"],
     )
     def test_edit_all_fields(self, mock_input, populated_vault, capsys):
         """Test editing all fields of an entry."""
@@ -230,7 +228,7 @@ class TestEditPassword:
         assert entry.url == "https://new.com"
         assert entry.notes == "New notes"
 
-    @patch('builtins.input', side_effect=['', '', '', ''])
+    @patch("builtins.input", side_effect=["", "", "", ""])
     def test_edit_keep_all_fields(self, mock_input, populated_vault, capsys):
         """Test editing with all empty inputs (keep current values)."""
         original_entry = populated_vault.get("Gmail")
@@ -247,7 +245,7 @@ class TestEditPassword:
         assert entry.url == original_url
         assert entry.notes == original_notes
 
-    @patch('builtins.input', side_effect=['newuser', '', '', ''])
+    @patch("builtins.input", side_effect=["newuser", "", "", ""])
     def test_edit_partial_fields(self, mock_input, populated_vault, capsys):
         """Test editing only some fields."""
         edit_password(populated_vault, "Gmail")
@@ -257,7 +255,7 @@ class TestEditPassword:
         assert entry.password == "pass123"  # Original password unchanged
         assert entry.url == "https://gmail.com"  # Original URL unchanged
 
-    @patch('builtins.input', side_effect=['', '', '', ''])
+    @patch("builtins.input", side_effect=["", "", "", ""])
     def test_edit_entry_without_optional_fields(self, mock_input, temp_vault, capsys):
         """Test editing entry that has no URL or notes."""
         temp_vault.add(PasswordEntry("Simple", "user", "pass"))
@@ -267,7 +265,7 @@ class TestEditPassword:
         assert entry.username == "user"
         assert entry.password == "pass"
 
-    @patch('builtins.input', side_effect=['newuser', 'p@ssw0rd!#$%', '', ''])
+    @patch("builtins.input", side_effect=["newuser", "p@ssw0rd!#$%", "", ""])
     def test_edit_special_characters(self, mock_input, temp_vault, capsys):
         """Test editing with special characters in password."""
         temp_vault.add(PasswordEntry("Test", "user", "pass"))

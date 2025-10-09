@@ -3,7 +3,7 @@
 import base64
 import hashlib
 import secrets
-from typing import Tuple
+from typing import Optional, Tuple
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -20,16 +20,19 @@ KEY_LENGTH = ARGON2_HASH_LENGTH
 
 class CryptoError(Exception):
     """Base exception for cryptographic operations."""
+
     pass
 
 
 class DecryptionError(CryptoError):
     """Raised when decryption fails (wrong password or corrupted data)."""
+
     pass
 
 
 class EncryptionError(CryptoError):
     """Raised when encryption fails."""
+
     pass
 
 
@@ -41,9 +44,9 @@ def generate_salt() -> bytes:
 def derive_key(master_password: str, salt: bytes) -> bytes:
     """Derive encryption key from master password using Argon2id."""
     try:
-        from argon2.low_level import hash_secret_raw, Type
+        from argon2.low_level import Type, hash_secret_raw
 
-        password_bytes = master_password.encode('utf-8')
+        password_bytes = master_password.encode("utf-8")
 
         # Use Argon2id for key derivation
         key = hash_secret_raw(
@@ -71,7 +74,7 @@ def create_fernet(key: bytes) -> Fernet:
 
 
 def encrypt_data(
-    data: bytes, master_password: str, salt: bytes = None
+    data: bytes, master_password: str, salt: Optional[bytes] = None
 ) -> Tuple[bytes, bytes]:
     """Encrypt data with master password."""
     try:
@@ -118,4 +121,4 @@ def verify_password(master_password: str, salt: bytes, ciphertext: bytes) -> boo
 
 def hash_for_storage(data: str) -> str:
     """Create SHA-256 hash for integrity checking (not encryption)."""
-    return hashlib.sha256(data.encode('utf-8')).hexdigest()
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()

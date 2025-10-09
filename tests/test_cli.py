@@ -10,7 +10,6 @@ Tests command-line interface including:
 
 import argparse
 import os
-import sys
 import tempfile
 from io import StringIO
 from unittest.mock import MagicMock, patch
@@ -90,7 +89,16 @@ class TestCreateParser:
         """Test that parser accepts add with URL and notes."""
         parser = create_parser()
         args = parser.parse_args(
-            ["add", "Test", "user", "pass", "--url", "https://test.com", "--notes", "Important"]
+            [
+                "add",
+                "Test",
+                "user",
+                "pass",
+                "--url",
+                "https://test.com",
+                "--notes",
+                "Important",
+            ]
         )
         assert args.url == "https://test.com"
         assert args.notes == "Important"
@@ -169,7 +177,12 @@ class TestHandleCliCommand:
     def test_handle_add_command(self, temp_vault, capsys):
         """Test handling add command."""
         args = argparse.Namespace(
-            command="add", name="Test", username="user", password="pass", url="", notes=""
+            command="add",
+            name="Test",
+            username="user",
+            password="pass",
+            url="",
+            notes="",
         )
         handle_cli_command(temp_vault, args)
         captured = capsys.readouterr()
@@ -208,7 +221,7 @@ class TestHandleCliCommand:
         captured = capsys.readouterr()
         assert "Entry 'NonExistent' not found" in captured.out
 
-    @patch('builtins.input', side_effect=['', '', '', ''])
+    @patch("builtins.input", side_effect=["", "", "", ""])
     def test_handle_edit_command(self, mock_input, populated_vault, capsys):
         """Test handling edit command."""
         args = argparse.Namespace(command="edit", name="Gmail")
@@ -251,9 +264,9 @@ class TestHandleCliCommand:
 class TestMain:
     """Test main function."""
 
-    @patch('pulseguard.cli.initialize_vault')
-    @patch('pulseguard.cli.Console')
-    @patch('sys.argv', ['pulseguard'])
+    @patch("pulseguard.cli.initialize_vault")
+    @patch("pulseguard.cli.Console")
+    @patch("sys.argv", ["pulseguard"])
     def test_main_no_args_starts_console(self, mock_console, mock_init_vault):
         """Test that main with no args starts interactive console."""
         mock_vault_instance = MagicMock()
@@ -267,8 +280,8 @@ class TestMain:
         mock_console.assert_called_once_with(vault=mock_vault_instance)
         mock_console_instance.cmdloop.assert_called_once()
 
-    @patch('pulseguard.cli.initialize_vault')
-    @patch('sys.argv', ['pulseguard', 'list'])
+    @patch("pulseguard.cli.initialize_vault")
+    @patch("sys.argv", ["pulseguard", "list"])
     def test_main_with_list_command(self, mock_init_vault, capsys):
         """Test main with list command."""
         mock_vault_instance = MagicMock()
@@ -280,8 +293,8 @@ class TestMain:
         mock_init_vault.assert_called_once()
         # Command should execute (output checked in other tests)
 
-    @patch('pulseguard.cli.initialize_vault')
-    @patch('sys.argv', ['pulseguard', 'add', 'Test', 'user', 'pass'])
+    @patch("pulseguard.cli.initialize_vault")
+    @patch("sys.argv", ["pulseguard", "add", "Test", "user", "pass"])
     def test_main_with_add_command(self, mock_init_vault, capsys):
         """Test main with add command."""
         mock_vault_instance = MagicMock()
@@ -291,8 +304,8 @@ class TestMain:
 
         mock_init_vault.assert_called_once()
 
-    @patch('pulseguard.cli.initialize_vault', side_effect=VaultError("Test error"))
-    @patch('sys.argv', ['pulseguard', 'list'])
+    @patch("pulseguard.cli.initialize_vault", side_effect=VaultError("Test error"))
+    @patch("sys.argv", ["pulseguard", "list"])
     def test_main_vault_error_exits(self, mock_init_vault, capsys):
         """Test that vault error causes exit."""
         with pytest.raises(SystemExit) as exc_info:
@@ -302,8 +315,8 @@ class TestMain:
         captured = capsys.readouterr()
         assert "Vault error" in captured.err
 
-    @patch('pulseguard.cli.initialize_vault', side_effect=KeyboardInterrupt())
-    @patch('sys.argv', ['pulseguard', 'list'])
+    @patch("pulseguard.cli.initialize_vault", side_effect=KeyboardInterrupt())
+    @patch("sys.argv", ["pulseguard", "list"])
     def test_main_keyboard_interrupt_exits(self, mock_init_vault, capsys):
         """Test that KeyboardInterrupt is handled gracefully."""
         with pytest.raises(SystemExit) as exc_info:
@@ -313,8 +326,8 @@ class TestMain:
         captured = capsys.readouterr()
         assert "Operation cancelled" in captured.out
 
-    @patch('pulseguard.cli.initialize_vault', side_effect=Exception("Generic error"))
-    @patch('sys.argv', ['pulseguard', 'list'])
+    @patch("pulseguard.cli.initialize_vault", side_effect=Exception("Generic error"))
+    @patch("sys.argv", ["pulseguard", "list"])
     def test_main_generic_error_exits(self, mock_init_vault, capsys):
         """Test that generic exceptions are caught and exit."""
         with pytest.raises(SystemExit) as exc_info:
@@ -328,8 +341,8 @@ class TestMain:
 class TestCliIntegration:
     """Test CLI integration scenarios."""
 
-    @patch('pulseguard.cli.initialize_vault')
-    @patch('sys.argv', ['pulseguard', 'list'])
+    @patch("pulseguard.cli.initialize_vault")
+    @patch("sys.argv", ["pulseguard", "list"])
     def test_cli_list_empty_vault(self, mock_init_vault, capsys):
         """Test CLI list on empty vault."""
         mock_vault_instance = MagicMock()
@@ -338,11 +351,11 @@ class TestCliIntegration:
 
         main()
 
-        captured = capsys.readouterr()
+        capsys.readouterr()
         # Should handle empty vault gracefully
 
-    @patch('pulseguard.cli.initialize_vault')
-    @patch('sys.argv', ['pulseguard', 'demo'])
+    @patch("pulseguard.cli.initialize_vault")
+    @patch("sys.argv", ["pulseguard", "demo"])
     def test_cli_demo_workflow(self, mock_init_vault, capsys):
         """Test CLI demo command workflow."""
         with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
@@ -366,15 +379,15 @@ class TestCliIntegration:
 
         # Capture help output
         with pytest.raises(SystemExit):
-            with patch('sys.stdout', new=StringIO()) as fake_out:
-                parser.parse_args(['--help'])
+            with patch("sys.stdout", new=StringIO()):
+                parser.parse_args(["--help"])
 
     def test_command_help_shows_usage(self):
         """Test that command-specific help shows usage."""
         parser = create_parser()
 
         with pytest.raises(SystemExit):
-            parser.parse_args(['add', '--help'])
+            parser.parse_args(["add", "--help"])
 
 
 class TestArgumentParsing:
@@ -390,14 +403,18 @@ class TestArgumentParsing:
     def test_add_url_only(self):
         """Test add command with only URL."""
         parser = create_parser()
-        args = parser.parse_args(["add", "Test", "user", "pass", "--url", "https://test.com"])
+        args = parser.parse_args(
+            ["add", "Test", "user", "pass", "--url", "https://test.com"]
+        )
         assert args.url == "https://test.com"
         assert args.notes == ""
 
     def test_add_notes_only(self):
         """Test add command with only notes."""
         parser = create_parser()
-        args = parser.parse_args(["add", "Test", "user", "pass", "--notes", "Important"])
+        args = parser.parse_args(
+            ["add", "Test", "user", "pass", "--notes", "Important"]
+        )
         assert args.url == ""
         assert args.notes == "Important"
 
@@ -421,7 +438,7 @@ class TestArgumentParsing:
         """Test search query with multiple words."""
         parser = create_parser()
         # Note: argparse will only capture first word without quotes
-        args = parser.parse_args(["search", "gmail account"])
+        parser.parse_args(["search", "gmail account"])
         # Due to argparse behavior, only "gmail" will be captured
         # "account" would be treated as extra arg and cause error
         # This documents current limitation
@@ -430,11 +447,11 @@ class TestArgumentParsing:
 class TestErrorHandling:
     """Test CLI error handling."""
 
-    @patch('pulseguard.cli.initialize_vault')
-    @patch('sys.argv', ['pulseguard', 'get', 'Test'])
+    @patch("pulseguard.cli.initialize_vault")
+    @patch("sys.argv", ["pulseguard", "get", "Test"])
     def test_cli_handles_vault_corrupted_error(self, mock_init_vault, capsys):
         """Test CLI handles VaultCorruptedError."""
-        from pulseguard.vault import VaultCorruptedError
+
         mock_init_vault.side_effect = VaultCorruptedError("Corrupted vault")
 
         with pytest.raises(SystemExit) as exc_info:
@@ -468,7 +485,11 @@ class TestParserGeneration:
 
         for cmd in COMMANDS:
             # Should be able to parse each command
-            args = parser.parse_args([cmd.name] + ["dummy"] * len([a for a in cmd.args if not a["name"].startswith("--")]))
+            args = parser.parse_args(
+                [cmd.name]
+                + ["dummy"]
+                * len([a for a in cmd.args if not a["name"].startswith("--")])
+            )
             assert args.command == cmd.name
 
     def test_parser_preserves_arg_order(self):

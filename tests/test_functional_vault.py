@@ -19,7 +19,6 @@ from pulseguard.models import PasswordEntry
 from pulseguard.vault import (
     Vault,
     VaultCorruptedError,
-    VaultDecryptionError,
     VaultPlaintextWarning,
 )
 
@@ -116,7 +115,9 @@ class TestVaultDataPersistence:
             vault2 = Vault(file_path=vault_path)
             retrieved = vault2.get("GitHub")
             assert retrieved is not None
-            assert retrieved.password == "NewPassword456", "Updated password should persist"
+            assert (
+                retrieved.password == "NewPassword456"
+            ), "Updated password should persist"
             assert retrieved.password != "OldPassword123", "Old password should be gone"
 
             # Verify only one entry exists (not duplicated)
@@ -320,7 +321,7 @@ class TestVaultDataIntegrity:
             entry = PasswordEntry(
                 name="Test!@#$%^&*()",
                 username="user+tag@example.com",
-                password='Pa$$w0rd"with\'quotes',
+                password="Pa$$w0rd\"with'quotes",
                 url="https://example.com?param=value&other=test",
                 notes="Line1\nLine2\tTabbed",
             )
@@ -330,7 +331,7 @@ class TestVaultDataIntegrity:
             vault2 = Vault(file_path=vault_path)
             retrieved = vault2.get("Test!@#$%^&*()")
             assert retrieved is not None
-            assert retrieved.password == 'Pa$$w0rd"with\'quotes'
+            assert retrieved.password == "Pa$$w0rd\"with'quotes"
             assert retrieved.notes == "Line1\nLine2\tTabbed"
 
     def test_timestamps_preserved(self):

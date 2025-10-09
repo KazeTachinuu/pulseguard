@@ -19,31 +19,37 @@ from .models import PasswordEntry
 
 class VaultError(Exception):
     """Base exception for vault-related errors."""
+
     pass
 
 
 class VaultNotFoundError(VaultError):
     """Raised when vault file doesn't exist."""
+
     pass
 
 
 class VaultCorruptedError(VaultError):
     """Raised when vault file exists but is unreadable."""
+
     pass
 
 
 class VaultEncryptionError(VaultError):
     """Raised when vault encryption fails."""
+
     pass
 
 
 class VaultDecryptionError(VaultError):
     """Raised when vault decryption fails."""
+
     pass
 
 
 class VaultPlaintextWarning(UserWarning):
     """Warning for plaintext vault detected."""
+
     pass
 
 
@@ -141,6 +147,8 @@ class Vault:
 
         if self._is_encrypted:
             try:
+                # Type assertion: master_password and _salt are non-None when encrypted
+                assert self.master_password is not None, "Master password required"
                 ciphertext, salt = encrypt_data(
                     json_content.encode("utf-8"), self.master_password, self._salt
                 )

@@ -1,6 +1,5 @@
 """CLI operations for PulseGuard."""
 
-
 from .messages import (
     DEMO_ENTRIES,
     ERROR_NOT_FOUND,

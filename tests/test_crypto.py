@@ -17,17 +17,10 @@ Security testing focus:
 - No plaintext leakage
 """
 
-import base64
-import os
-import secrets
-
 import pytest
 
 from pulseguard.crypto import (
-    CryptoError,
     DecryptionError,
-    EncryptionError,
-    create_fernet,
     decrypt_data,
     derive_key,
     encrypt_data,
@@ -214,7 +207,9 @@ class TestEncryption:
 
         # Ciphertext should not contain plaintext
         assert data not in ciphertext, "Ciphertext must not contain plaintext"
-        assert b"SECRET" not in ciphertext, "Ciphertext must not contain parts of plaintext"
+        assert (
+            b"SECRET" not in ciphertext
+        ), "Ciphertext must not contain parts of plaintext"
 
 
 class TestDecryption:
@@ -357,7 +352,9 @@ class TestSecurityProperties:
         # Times should be relatively similar (within 100x factor)
         # This is a weak check but catches obvious timing leaks
         ratio = max(time1, time2) / max(min(time1, time2), 0.0001)
-        assert ratio < 100, "Timing should not leak information about password incorrectness"
+        assert (
+            ratio < 100
+        ), "Timing should not leak information about password incorrectness"
 
     def test_salt_prevents_rainbow_tables(self):
         """Verify salt prevents rainbow table attacks (same password, different keys)."""
@@ -440,7 +437,6 @@ class TestEdgeCases:
 
     def test_whitespace_in_password(self):
         """Verify whitespace in password is significant."""
-        data = b"Test data"
 
         password1 = "password"
         password2 = "pass word"

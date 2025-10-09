@@ -12,7 +12,6 @@ Tests the interactive console including:
 
 import os
 import tempfile
-from io import StringIO
 from unittest.mock import patch
 
 import pytest
@@ -108,7 +107,9 @@ class TestCommandExecution:
 
     def test_execute_add_with_optional_args(self, console_with_vault, capsys):
         """Test executing add with URL and notes."""
-        console_with_vault.default("add Site user pass --url https://test.com --notes Important")
+        console_with_vault.default(
+            "add Site user pass --url https://test.com --notes Important"
+        )
         captured = capsys.readouterr()
         assert "Added entry 'Site' successfully" in captured.out
 
@@ -147,7 +148,7 @@ class TestCommandExecution:
         captured = capsys.readouterr()
         assert "Found 1 entry(ies) matching 'gmail'" in captured.out
 
-    @patch('builtins.input', side_effect=['newuser', '', '', ''])
+    @patch("builtins.input", side_effect=["newuser", "", "", ""])
     def test_execute_edit_command(self, mock_input, populated_console, capsys):
         """Test executing edit command."""
         populated_console.default("edit Gmail")
@@ -242,21 +243,21 @@ class TestAliasResolution:
         captured = capsys.readouterr()
         assert "Found 1 entry(ies)" in captured.out
 
-    @patch('builtins.input', side_effect=['', '', '', ''])
+    @patch("builtins.input", side_effect=["", "", "", ""])
     def test_execute_edit_alias_e(self, mock_input, populated_console, capsys):
         """Test executing 'e' alias for edit."""
         populated_console.default("e Gmail")
         captured = capsys.readouterr()
         assert "Editing password 'Gmail'" in captured.out
 
-    @patch('builtins.input', side_effect=['', '', '', ''])
+    @patch("builtins.input", side_effect=["", "", "", ""])
     def test_execute_edit_alias_modify(self, mock_input, populated_console, capsys):
         """Test executing 'modify' alias for edit."""
         populated_console.default("modify Gmail")
         captured = capsys.readouterr()
         assert "Editing password 'Gmail'" in captured.out
 
-    @patch('builtins.input', side_effect=['', '', '', ''])
+    @patch("builtins.input", side_effect=["", "", "", ""])
     def test_execute_edit_alias_update(self, mock_input, populated_console, capsys):
         """Test executing 'update' alias for edit."""
         populated_console.default("update Gmail")
@@ -353,7 +354,9 @@ class TestErrorHandling:
     def test_command_with_exception(self, console_with_vault, capsys):
         """Test handling of command that raises exception."""
         # Try to get from a corrupted vault (simulate error)
-        with patch.object(console_with_vault.vault, 'get', side_effect=Exception("Test error")):
+        with patch.object(
+            console_with_vault.vault, "get", side_effect=Exception("Test error")
+        ):
             console_with_vault.default("get Test")
             captured = capsys.readouterr()
             assert "Error executing command" in captured.out
@@ -387,7 +390,7 @@ class TestCommandParsing:
         console_with_vault.default("add Site user my pass word")
         # Will parse "my" as password, "pass" and "word" as extra args
         # This is a known limitation
-        captured = capsys.readouterr()
+        capsys.readouterr()
         # Should still add the entry with "my" as password
         assert console_with_vault.vault.get("Site") is not None
 

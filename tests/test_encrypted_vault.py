@@ -27,7 +27,6 @@ from pulseguard import PasswordEntry, Vault
 from pulseguard.vault import (
     VaultCorruptedError,
     VaultDecryptionError,
-    VaultEncryptionError,
     VaultPlaintextWarning,
 )
 
@@ -53,7 +52,9 @@ class TestEncryptedVaultCreation:
                 content = f.read()
                 data = json.loads(content)
 
-                assert data.get("encrypted") is True, "Vault must be marked as encrypted"
+                assert (
+                    data.get("encrypted") is True
+                ), "Vault must be marked as encrypted"
                 assert "salt" in data, "Vault must contain salt"
                 assert "data" in data, "Vault must contain encrypted data"
                 assert "entries" not in data, "Vault must not have plaintext entries"
@@ -507,7 +508,9 @@ class TestEncryptedVaultSecurity:
                 data2 = f.read()
 
             # Encrypted vaults should be different
-            assert data1 != data2, "Different passwords must produce different encrypted vaults"
+            assert (
+                data1 != data2
+            ), "Different passwords must produce different encrypted vaults"
 
         finally:
             if os.path.exists(temp_file1):

@@ -63,4 +63,4 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
-ignore = []
+ignore = ["E501"]  # Allow long lines (black will handle code formatting)

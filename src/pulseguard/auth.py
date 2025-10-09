@@ -36,5 +36,3 @@ def prompt_create_master_password() -> str:
 def prompt_unlock_vault() -> str:
     """Prompt user to unlock existing vault with master password."""
     return get_master_password(prompt="Enter master password to unlock vault: ")
-
-

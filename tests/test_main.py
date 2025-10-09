@@ -5,21 +5,20 @@ Tests the main entry point when running as a module (python -m pulseguard).
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 import pulseguard.__main__
 
 
 class TestMainModule:
     """Test __main__ module."""
 
-    @patch('pulseguard.__main__.main')
+    @patch("pulseguard.__main__.main")
     def test_main_called_when_executed(self, mock_main):
         """Test that main() is called when module is executed."""
         # Simulate running as __main__
-        with patch.object(pulseguard.__main__, '__name__', '__main__'):
+        with patch.object(pulseguard.__main__, "__name__", "__main__"):
             # Re-import to trigger the if __name__ == "__main__" block
             import importlib
+
             importlib.reload(pulseguard.__main__)
 
             # Main should have been called
@@ -33,9 +32,9 @@ class TestMainModule:
 
         assert main is cli_main
 
-    @patch('pulseguard.cli.initialize_vault')
-    @patch('pulseguard.cli.Console')
-    @patch('sys.argv', ['pulseguard'])
+    @patch("pulseguard.cli.initialize_vault")
+    @patch("pulseguard.cli.Console")
+    @patch("sys.argv", ["pulseguard"])
     def test_module_execution_no_args(self, mock_console, mock_init_vault):
         """Test module execution with no arguments."""
         from pulseguard.__main__ import main
@@ -50,8 +49,8 @@ class TestMainModule:
         mock_init_vault.assert_called_once()
         mock_console.assert_called_once()
 
-    @patch('pulseguard.cli.initialize_vault')
-    @patch('sys.argv', ['pulseguard', 'list'])
+    @patch("pulseguard.cli.initialize_vault")
+    @patch("sys.argv", ["pulseguard", "list"])
     def test_module_execution_with_command(self, mock_init_vault):
         """Test module execution with command."""
         from pulseguard.__main__ import main

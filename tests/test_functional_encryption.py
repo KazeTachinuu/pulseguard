@@ -48,7 +48,9 @@ class TestEncryptedVaultCreation:
             assert (
                 "SuperSecretPassword123!" not in content
             ), "Password should NOT be in plaintext"
-            assert "user@gmail.com" not in content, "Username should NOT be in plaintext"
+            assert (
+                "user@gmail.com" not in content
+            ), "Username should NOT be in plaintext"
             assert "Gmail" not in content, "Entry name should NOT be in plaintext"
 
             # Verify data is actually base64-encoded ciphertext
@@ -314,9 +316,7 @@ class TestEncryptionSecurity:
             assert (
                 data1["data"] != data2["data"]
             ), "Same data should encrypt differently each time"
-            assert (
-                data1["salt"] != data2["salt"]
-            ), "Each vault should have unique salt"
+            assert data1["salt"] != data2["salt"], "Each vault should have unique salt"
 
     def test_salt_is_stored_and_reused(self):
         """FUNCTIONAL: Salt is stored with vault and reused for updates."""
