@@ -15,6 +15,7 @@ uv pip install -e .
 ```bash
 pulseguard list                           # List passwords
 pulseguard add Gmail user@example.com pwd # Add password
+pulseguard genpass --length 20 --symbols true --upper true --lower true --digits true # genPass
 pulseguard get Gmail                      # Get password details
 pulseguard edit Gmail                     # Edit password
 pulseguard delete Gmail                   # Delete password

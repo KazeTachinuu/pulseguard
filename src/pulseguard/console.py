@@ -59,18 +59,63 @@ class Console(cmd.Cmd):
             name, username, password = add_parts[0], add_parts[1], add_parts[2]
             url, notes = "", ""
 
+            gen = False
+            length = 16
+            lower = True
+            upper = True
+            digits = True
+            symbols = False
+
             i = 3
             while i < len(add_parts):
-                if add_parts[i] == "--url" and i + 1 < len(add_parts):
-                    url = add_parts[i + 1]
+                tok = add_parts[i]
+                nxt = add_parts[i + 1] if i + 1 < len(add_parts) else ""
+                if tok == "--url" and nxt:
+                    url = nxt; i += 2
+                elif tok == "--notes" and nxt:
+                    notes = nxt; i += 2
+                elif tok == "--gen":
+                    gen = True; i += 1
+                elif tok == "--length" and nxt:
+                    try: length = int(nxt)
+                    except ValueError: pass
                     i += 2
-                elif add_parts[i] == "--notes" and i + 1 < len(add_parts):
-                    notes = add_parts[i + 1]
-                    i += 2
+                elif tok == "--lower" and nxt:
+                    lower = nxt.lower() in ("1","true","yes","y"); i += 2
+                elif tok == "--upper" and nxt:
+                    upper = nxt.lower() in ("1","true","yes","y"); i += 2
+                elif tok == "--digits" and nxt:
+                    digits = nxt.lower() in ("1","true","yes","y"); i += 2
+                elif tok == "--symbols" and nxt:
+                    symbols = nxt.lower() in ("1","true","yes","y"); i += 2
                 else:
                     i += 1
 
-            handler_args.extend([name, username, password, url, notes])
+            handler_args.extend([name, username, password, url, notes, gen, length, lower, upper, digits, symbols])
+
+        elif resolved_name == "genpass":
+            gp_parts = args.split() if args else []
+            length = 16; lower = True; upper = True; digits = True; symbols = False
+            i = 0
+            while i < len(gp_parts):
+                tok = gp_parts[i]
+                nxt = gp_parts[i + 1] if i + 1 < len(gp_parts) else ""
+                if tok == "--length" and nxt:
+                    try: length = int(nxt)
+                    except ValueError: pass
+                    i += 2
+                elif tok == "--lower" and nxt:
+                    lower = nxt.lower() in ("1","true","yes","y"); i += 2
+                elif tok == "--upper" and nxt:
+                    upper = nxt.lower() in ("1","true","yes","y"); i += 2
+                elif tok == "--digits" and nxt:
+                    digits = nxt.lower() in ("1","true","yes","y"); i += 2
+                elif tok == "--symbols" and nxt:
+                    symbols = nxt.lower() in ("1","true","yes","y"); i += 2
+                else:
+                    i += 1
+            handler_args.extend([length, lower, upper, digits, symbols])
+
         else:
             for arg in cmd_args:
                 arg_name = arg["name"].lstrip("-")

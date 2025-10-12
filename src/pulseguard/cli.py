@@ -33,18 +33,23 @@ def create_parser() -> argparse.ArgumentParser:
 
     for cmd in COMMANDS:
         subparser = subparsers.add_parser(cmd.name, help=cmd.description)
-
         for arg in cmd.args:
             arg_name = arg["name"]
-            arg_help = arg["help"]
-
+            arg_help = arg.get("help", "")
             if arg_name.startswith("--"):
-                subparser.add_argument(
-                    arg_name, default=arg.get("default", ""), help=arg_help
-                )
+                kwargs = {"help": arg_help}
+                if "action" in arg:
+                    kwargs["action"] = arg["action"]
+                if "type" in arg:
+                    kwargs["type"] = arg["type"]
+                if "default" in arg:
+                    kwargs["default"] = arg["default"]
+                if arg.get("type") is bool:
+                    kwargs["type"] = lambda v: str(v).lower() in ("1", "true", "yes", "y")
+
+                subparser.add_argument(arg_name, **kwargs)
             else:
                 subparser.add_argument(arg_name, help=arg_help)
-
     return parser
 
 
