@@ -1,4 +1,12 @@
-# tests/test_auth.py
+"""Tests unitaires pour le module d auth
+
+Ceci sera tster
+- Saisie du master pass
+- creation & ajout
+- Déverrouillage 
+- test cancel avec ctrl-D ou ctrl-C
+"""
+
 import builtins
 import pytest
 from unittest.mock import patch
@@ -21,7 +29,6 @@ def test_prompt_create_master_password_mismatch(mock_gp):
 def test_get_master_password_cancelled(mock_gp, capsys):
     with pytest.raises(KeyboardInterrupt):
         get_master_password()
-    # message d’annulation bien imprimé
     assert "Password prompt cancelled" in capsys.readouterr().err
 
 @patch("getpass.getpass", return_value="OpenSesame")
