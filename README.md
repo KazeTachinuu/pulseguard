@@ -5,7 +5,7 @@ A simple password manager with CLI and interactive console.
 ## Installation
 
 ```bash
-uv pip install -e .
+uv sync
 ```
 
 ## Usage
@@ -51,10 +51,13 @@ Default: `~/.pulseguard/vault.json`
 ## Development
 
 ```bash
-uv pip install -e .[dev,test]
+uv sync
 
 # Install git hooks (auto-format on commit)
 ./setup-hooks.sh
+
+# Add pytest
+uv add pytest
 
 # Run tests
 uv run pytest
