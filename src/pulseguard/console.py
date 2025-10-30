@@ -12,6 +12,7 @@ from .commands import (
 from .messages import (
     CONSOLE_INTRO,
     CONSOLE_PROMPT,
+    ERROR_MUTUALLY_EXCLUSIVE_GEN,
     ERROR_USAGE_ADD,
     INFO_GOODBYE,
 )
@@ -51,13 +52,10 @@ class Console(cmd.Cmd):
         handler_args: List[Any] = [self.vault]
 
         if resolved_name == "add":
-            add_parts = args.split()
-            if len(add_parts) < 3:
+            parts = args.split()
+            if not parts:
                 print(ERROR_USAGE_ADD)
                 return
-
-            name, username, password = add_parts[0], add_parts[1], add_parts[2]
-            url, notes = "", ""
 
             gen = False
             length = 16
@@ -66,15 +64,12 @@ class Console(cmd.Cmd):
             digits = True
             symbols = False
 
-            i = 3
-            while i < len(add_parts):
-                tok = add_parts[i]
-                nxt = add_parts[i + 1] if i + 1 < len(add_parts) else ""
-                if tok == "--url" and nxt:
-                    url = nxt; i += 2
-                elif tok == "--notes" and nxt:
-                    notes = nxt; i += 2
-                elif tok == "--gen":
+            cleaned = []
+            i = 0
+            while i < len(parts):
+                tok = parts[i]
+                nxt = parts[i + 1] if i + 1 < len(parts) else ""
+                if tok == "--gen":
                     gen = True; i += 1
                 elif tok == "--length" and nxt:
                     try: length = int(nxt)
@@ -88,10 +83,56 @@ class Console(cmd.Cmd):
                     digits = nxt.lower() in ("1","true","yes","y"); i += 2
                 elif tok == "--symbols" and nxt:
                     symbols = nxt.lower() in ("1","true","yes","y"); i += 2
+                elif tok == "--url" and nxt:
+                    # on garde --url et son argument pour la passe 2
+                    cleaned.extend([tok, nxt]); i += 2
+                elif tok == "--notes" and nxt:
+                    cleaned.extend([tok, nxt]); i += 2
                 else:
-                    i += 1
+                    cleaned.append(tok); i += 1
+
+            parts = cleaned
+
+            if len(parts) < 2:
+                print(ERROR_USAGE_ADD)
+                return
+
+            name = parts[0]
+            username = parts[1]
+
+            password = ""
+            idx = 2
+            if idx < len(parts) and not parts[idx].startswith("--"):
+                password = parts[idx]
+                idx += 1
+
+            url = ""
+            notes = ""
+            while idx < len(parts):
+                tok = parts[idx]
+                nxt = parts[idx + 1] if idx + 1 < len(parts) else ""
+                if tok == "--url" and nxt:
+                    url = nxt; idx += 2
+                elif tok == "--notes" and nxt:
+                    notes = nxt; idx += 2
+                else:
+                    idx += 1
+
+            if not gen and not password:
+                print(ERROR_USAGE_ADD)
+                return
+            
+            if gen and password:
+                print(ERROR_MUTUALLY_EXCLUSIVE_GEN)
+                return
 
             handler_args.extend([name, username, password, url, notes, gen, length, lower, upper, digits, symbols])
+            try:
+                handler(*handler_args)
+            except Exception as e:
+                print(f"Error executing command: {e}")
+            return
+
 
         elif resolved_name == "genpass":
             gp_parts = args.split() if args else []
