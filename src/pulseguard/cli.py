@@ -13,7 +13,9 @@ from .commands import (
 )
 from .console import Console
 from .messages import (
+    ERROR_USAGE_ADD,
     ERROR_GENERIC,
+    ERROR_MUTUALLY_EXCLUSIVE_GEN,
     ERROR_OPERATION_CANCELLED,
     ERROR_UNKNOWN_COMMAND,
     INFO_HELP,
@@ -65,6 +67,18 @@ def handle_cli_command(vault: Vault, args: argparse.Namespace) -> None:
     handler_args = [vault]
 
     for arg in cmd_args:
+        if args.command == "add":
+            has_password = bool(getattr(args, "password", ""))
+            wants_gen = bool(getattr(args, "gen", False))
+
+        if not has_password and not wants_gen:
+            print(ERROR_USAGE_ADD)
+            sys.exit(1)
+
+        if has_password and wants_gen:
+            print(ERROR_MUTUALLY_EXCLUSIVE_GEN)
+            sys.exit(1)
+
         arg_name = arg["name"].lstrip("-")
         if hasattr(args, arg_name):
             handler_args.append(getattr(args, arg_name))
