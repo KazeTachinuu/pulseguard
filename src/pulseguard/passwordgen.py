@@ -5,9 +5,12 @@ import string
 import subprocess
 import sys
 from dataclasses import dataclass
+from typing import Any, Optional
 
 try:
-    import pyperclip
+    import pyperclip as _pyperclip
+
+    pyperclip: Optional[Any] = _pyperclip
 except Exception:
     pyperclip = None
 

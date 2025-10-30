@@ -57,7 +57,8 @@ def add_password(
                 length=length, lower=lower, upper=upper, digits=digits, symbols=symbols
             )
             password = generate_password(opts)
-            if copy_to_clipboard(password):
+            copied = copy_to_clipboard(password)
+            if copied:
                 print("Generated password copied to clipboard.")
             else:
                 print("! Clipboard unavailable, showing the new password below:")
@@ -70,7 +71,7 @@ def add_password(
         print(SUCCESS_ADDED.format(name=name))
         if gen:
             print(f"(length={len(password)}, max={MAX_LEN})")
-            if not copy_to_clipboard:
+            if not copied:
                 print(f"Password: {password}")
     except VaultError as e:
         print(f"Error adding password: {e}")
