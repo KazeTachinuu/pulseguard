@@ -2,6 +2,7 @@
 
 from .messages import (
     DEMO_ENTRIES,
+    ERROR_MUTUALLY_EXCLUSIVE_GEN,
     ERROR_NOT_FOUND,
     INFO_FOUND_COUNT,
     INFO_FOUND_MATCHING,
@@ -43,6 +44,9 @@ def add_password(
 ) -> None:
     """Add a password."""
     try:
+        if gen and password:
+            print(ERROR_MUTUALLY_EXCLUSIVE_GEN)
+            return
         if gen:
             opts = GenOptions(length=length, lower=lower, upper=upper, digits=digits, symbols=symbols)
             password = generate_password(opts)
@@ -50,6 +54,7 @@ def add_password(
                 print("Generated password copied to clipboard.")
             else:
                 print("! Clipboard unavailable, showing the new password below:")
+                print(password)
 
         entry = PasswordEntry(
             name=name, username=username, password=password, url=url, notes=notes
