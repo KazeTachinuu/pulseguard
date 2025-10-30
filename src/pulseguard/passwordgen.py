@@ -1,10 +1,10 @@
 """Secure password generator and clipboard utilities."""
 
-from dataclasses import dataclass
 import secrets
 import string
 import subprocess
 import sys
+from dataclasses import dataclass
 
 try:
     import pyperclip
@@ -94,8 +94,10 @@ def copy_to_clipboard(text: str) -> bool:
             return p.returncode == 0
         elif sys.platform.startswith("linux"):
             # Requires xclip or xsel installed
-            for cmd in (["xclip", "-selection", "clipboard"],
-                        ["xsel", "--clipboard", "--input"]):
+            for cmd in (
+                ["xclip", "-selection", "clipboard"],
+                ["xsel", "--clipboard", "--input"],
+            ):
                 try:
                     p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
                     p.communicate(input=text.encode("utf-8"))

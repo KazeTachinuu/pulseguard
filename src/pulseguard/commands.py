@@ -7,11 +7,11 @@ from .operations import (
     add_password,
     delete_password,
     edit_password,
+    generate_password_command,
     get_password,
     list_passwords,
     run_demo,
     search_passwords,
-    generate_password_command,
 )
 
 
@@ -44,8 +44,8 @@ COMMANDS = [
         name="add",
         description="Add a new entry",
         usage="add <name> <username> <password> [--url URL] [--notes NOTES] "
-              "[--gen] [--length N] [--lower true|false] [--upper true|false] "
-              "[--digits true|false] [--symbols true|false]",
+        "[--gen] [--length N] [--lower true|false] [--upper true|false] "
+        "[--digits true|false] [--symbols true|false]",
         example="pulseguard add Gmail user@example.com password123",
         console_help="add <name> <user> <pwd> Add a new entry",
         handler=add_password,
@@ -55,12 +55,41 @@ COMMANDS = [
             {"name": "password", "help": "Password"},
             {"name": "--url", "default": "", "help": "URL for the service"},
             {"name": "--notes", "default": "", "help": "Notes about the entry"},
-            {"name": "--gen", "action": "store_true", "help": "Generate password instead of using provided value"},
-            {"name": "--length", "type": int, "default": 16, "help": "Generated length (<=25)"},
-            {"name": "--lower", "type": bool, "default": True, "help": "Include lowercase"},
-            {"name": "--upper", "type": bool, "default": True, "help": "Include uppercase"},
-            {"name": "--digits", "type": bool, "default": True, "help": "Include digits"},
-            {"name": "--symbols", "type": bool, "default": False, "help": "Include symbols"},
+            {
+                "name": "--gen",
+                "action": "store_true",
+                "help": "Generate password instead of using provided value",
+            },
+            {
+                "name": "--length",
+                "type": int,
+                "default": 16,
+                "help": "Generated length (<=25)",
+            },
+            {
+                "name": "--lower",
+                "type": bool,
+                "default": True,
+                "help": "Include lowercase",
+            },
+            {
+                "name": "--upper",
+                "type": bool,
+                "default": True,
+                "help": "Include uppercase",
+            },
+            {
+                "name": "--digits",
+                "type": bool,
+                "default": True,
+                "help": "Include digits",
+            },
+            {
+                "name": "--symbols",
+                "type": bool,
+                "default": False,
+                "help": "Include symbols",
+            },
         ],
         aliases=["a", "new"],
     ),
@@ -108,16 +137,36 @@ COMMANDS = [
         name="genpass",
         description="Generate a secure password",
         usage="genpass [--length N] [--lower true|false] [--upper true|false] "
-              "[--digits true|false] [--symbols true|false]",
+        "[--digits true|false] [--symbols true|false]",
         example="pulseguard genpass --length 20 --symbols true",
         console_help="genpass                 Generate a secure password",
         handler=generate_password_command,
         args=[
             {"name": "--length", "type": int, "default": 16, "help": "Length (<=25)"},
-            {"name": "--lower", "type": bool, "default": True, "help": "Include lowercase"},
-            {"name": "--upper", "type": bool, "default": True, "help": "Include uppercase"},
-            {"name": "--digits", "type": bool, "default": True, "help": "Include digits"},
-            {"name": "--symbols", "type": bool, "default": False, "help": "Include symbols"},
+            {
+                "name": "--lower",
+                "type": bool,
+                "default": True,
+                "help": "Include lowercase",
+            },
+            {
+                "name": "--upper",
+                "type": bool,
+                "default": True,
+                "help": "Include uppercase",
+            },
+            {
+                "name": "--digits",
+                "type": bool,
+                "default": True,
+                "help": "Include digits",
+            },
+            {
+                "name": "--symbols",
+                "type": bool,
+                "default": False,
+                "help": "Include symbols",
+            },
         ],
         aliases=[],
     ),

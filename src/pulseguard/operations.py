@@ -12,9 +12,14 @@ from .messages import (
     SUCCESS_DELETED,
 )
 from .models import PasswordEntry
+from .passwordgen import (
+    DEFAULT_LEN,
+    MAX_LEN,
+    GenOptions,
+    copy_to_clipboard,
+    generate_password,
+)
 from .vault import Vault, VaultError
-from .passwordgen import GenOptions, generate_password, copy_to_clipboard, MAX_LEN, DEFAULT_LEN
-
 
 
 def list_passwords(vault: Vault) -> None:
@@ -48,7 +53,9 @@ def add_password(
             print(ERROR_MUTUALLY_EXCLUSIVE_GEN)
             return
         if gen:
-            opts = GenOptions(length=length, lower=lower, upper=upper, digits=digits, symbols=symbols)
+            opts = GenOptions(
+                length=length, lower=lower, upper=upper, digits=digits, symbols=symbols
+            )
             password = generate_password(opts)
             if copy_to_clipboard(password):
                 print("Generated password copied to clipboard.")
@@ -112,7 +119,9 @@ def edit_password(vault: Vault, name: str) -> None:
             digits = input("Include digits? (Y/n): ").strip().lower() != "n"
             symbols = input("Include symbols? (y/N): ").strip().lower() == "y"
 
-            opts = GenOptions(length=length, lower=lower, upper=upper, digits=digits, symbols=symbols)
+            opts = GenOptions(
+                length=length, lower=lower, upper=upper, digits=digits, symbols=symbols
+            )
             new_password = generate_password(opts)
             entry.password = new_password
 
@@ -167,6 +176,7 @@ def search_passwords(vault: Vault, query: str) -> None:
     else:
         print(INFO_NO_MATCHES.format(query=query))
 
+
 def generate_password_command(
     vault: Vault,
     length: int = DEFAULT_LEN,
@@ -177,7 +187,9 @@ def generate_password_command(
 ) -> None:
     """Generate a password according to flags and copy to clipboard."""
     try:
-        opts = GenOptions(length=length, lower=lower, upper=upper, digits=digits, symbols=symbols)
+        opts = GenOptions(
+            length=length, lower=lower, upper=upper, digits=digits, symbols=symbols
+        )
         pwd = generate_password(opts)
         copied = copy_to_clipboard(pwd)
         print("Generated password:")
@@ -189,6 +201,7 @@ def generate_password_command(
         print(f"(length={len(pwd)}, max={MAX_LEN})")
     except Exception as e:
         print(f"Generation error: {e}")
+
 
 def run_demo(vault: Vault) -> None:
     """Run demo with sample data."""

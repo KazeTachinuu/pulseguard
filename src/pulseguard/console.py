@@ -70,26 +70,36 @@ class Console(cmd.Cmd):
                 tok = parts[i]
                 nxt = parts[i + 1] if i + 1 < len(parts) else ""
                 if tok == "--gen":
-                    gen = True; i += 1
+                    gen = True
+                    i += 1
                 elif tok == "--length" and nxt:
-                    try: length = int(nxt)
-                    except ValueError: pass
+                    try:
+                        length = int(nxt)
+                    except ValueError:
+                        pass
                     i += 2
                 elif tok == "--lower" and nxt:
-                    lower = nxt.lower() in ("1","true","yes","y"); i += 2
+                    lower = nxt.lower() in ("1", "true", "yes", "y")
+                    i += 2
                 elif tok == "--upper" and nxt:
-                    upper = nxt.lower() in ("1","true","yes","y"); i += 2
+                    upper = nxt.lower() in ("1", "true", "yes", "y")
+                    i += 2
                 elif tok == "--digits" and nxt:
-                    digits = nxt.lower() in ("1","true","yes","y"); i += 2
+                    digits = nxt.lower() in ("1", "true", "yes", "y")
+                    i += 2
                 elif tok == "--symbols" and nxt:
-                    symbols = nxt.lower() in ("1","true","yes","y"); i += 2
+                    symbols = nxt.lower() in ("1", "true", "yes", "y")
+                    i += 2
                 elif tok == "--url" and nxt:
                     # on garde --url et son argument pour la passe 2
-                    cleaned.extend([tok, nxt]); i += 2
+                    cleaned.extend([tok, nxt])
+                    i += 2
                 elif tok == "--notes" and nxt:
-                    cleaned.extend([tok, nxt]); i += 2
+                    cleaned.extend([tok, nxt])
+                    i += 2
                 else:
-                    cleaned.append(tok); i += 1
+                    cleaned.append(tok)
+                    i += 1
 
             parts = cleaned
 
@@ -112,47 +122,72 @@ class Console(cmd.Cmd):
                 tok = parts[idx]
                 nxt = parts[idx + 1] if idx + 1 < len(parts) else ""
                 if tok == "--url" and nxt:
-                    url = nxt; idx += 2
+                    url = nxt
+                    idx += 2
                 elif tok == "--notes" and nxt:
-                    notes = nxt; idx += 2
+                    notes = nxt
+                    idx += 2
                 else:
                     idx += 1
 
             if not gen and not password:
                 print(ERROR_USAGE_ADD)
                 return
-            
+
             if gen and password:
                 print(ERROR_MUTUALLY_EXCLUSIVE_GEN)
                 return
 
-            handler_args.extend([name, username, password, url, notes, gen, length, lower, upper, digits, symbols])
+            handler_args.extend(
+                [
+                    name,
+                    username,
+                    password,
+                    url,
+                    notes,
+                    gen,
+                    length,
+                    lower,
+                    upper,
+                    digits,
+                    symbols,
+                ]
+            )
             try:
                 handler(*handler_args)
             except Exception as e:
                 print(f"Error executing command: {e}")
             return
 
-
         elif resolved_name == "genpass":
             gp_parts = args.split() if args else []
-            length = 16; lower = True; upper = True; digits = True; symbols = False
+            length = 16
+            lower = True
+            upper = True
+            digits = True
+            symbols = False
             i = 0
             while i < len(gp_parts):
                 tok = gp_parts[i]
                 nxt = gp_parts[i + 1] if i + 1 < len(gp_parts) else ""
                 if tok == "--length" and nxt:
-                    try: length = int(nxt)
-                    except ValueError: pass
+                    try:
+                        length = int(nxt)
+                    except ValueError:
+                        pass
                     i += 2
                 elif tok == "--lower" and nxt:
-                    lower = nxt.lower() in ("1","true","yes","y"); i += 2
+                    lower = nxt.lower() in ("1", "true", "yes", "y")
+                    i += 2
                 elif tok == "--upper" and nxt:
-                    upper = nxt.lower() in ("1","true","yes","y"); i += 2
+                    upper = nxt.lower() in ("1", "true", "yes", "y")
+                    i += 2
                 elif tok == "--digits" and nxt:
-                    digits = nxt.lower() in ("1","true","yes","y"); i += 2
+                    digits = nxt.lower() in ("1", "true", "yes", "y")
+                    i += 2
                 elif tok == "--symbols" and nxt:
-                    symbols = nxt.lower() in ("1","true","yes","y"); i += 2
+                    symbols = nxt.lower() in ("1", "true", "yes", "y")
+                    i += 2
                 else:
                     i += 1
             handler_args.extend([length, lower, upper, digits, symbols])

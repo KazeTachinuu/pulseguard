@@ -13,11 +13,11 @@ from .commands import (
 )
 from .console import Console
 from .messages import (
-    ERROR_USAGE_ADD,
     ERROR_GENERIC,
     ERROR_MUTUALLY_EXCLUSIVE_GEN,
     ERROR_OPERATION_CANCELLED,
     ERROR_UNKNOWN_COMMAND,
+    ERROR_USAGE_ADD,
     INFO_HELP,
 )
 from .vault import Vault, VaultDecryptionError, VaultError
@@ -47,7 +47,12 @@ def create_parser() -> argparse.ArgumentParser:
                 if "default" in arg:
                     kwargs["default"] = arg["default"]
                 if arg.get("type") is bool:
-                    kwargs["type"] = lambda v: str(v).lower() in ("1", "true", "yes", "y")
+                    kwargs["type"] = lambda v: str(v).lower() in (
+                        "1",
+                        "true",
+                        "yes",
+                        "y",
+                    )
 
                 subparser.add_argument(arg_name, **kwargs)
             else:
