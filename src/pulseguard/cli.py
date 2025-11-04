@@ -76,13 +76,13 @@ def handle_cli_command(vault: Vault, args: argparse.Namespace) -> None:
             has_password = bool(getattr(args, "password", ""))
             wants_gen = bool(getattr(args, "gen", False))
 
-        if not has_password and not wants_gen:
-            print(ERROR_USAGE_ADD)
-            sys.exit(1)
+            if not has_password and not wants_gen:
+                print(ERROR_USAGE_ADD)
+                sys.exit(1)
 
-        if has_password and wants_gen:
-            print(ERROR_MUTUALLY_EXCLUSIVE_GEN)
-            sys.exit(1)
+            if has_password and wants_gen:
+                print(ERROR_MUTUALLY_EXCLUSIVE_GEN)
+                sys.exit(1)
 
         arg_name = arg["name"].lstrip("-")
         if hasattr(args, arg_name):

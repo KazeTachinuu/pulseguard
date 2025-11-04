@@ -30,6 +30,7 @@ from pulseguard.operations import (
     list_passwords,
     run_demo,
     search_passwords,
+    generate_password_command,
 )
 
 
@@ -84,6 +85,7 @@ class TestCommandDataStructure:
             delete_password,
             search_passwords,
             run_demo,
+            generate_password_command,
         }
 
         registered_handlers = {cmd.handler for cmd in COMMANDS}
@@ -92,7 +94,7 @@ class TestCommandDataStructure:
     def test_specific_commands_exist(self):
         """Test that expected commands are registered."""
         command_names = {cmd.name for cmd in COMMANDS}
-        expected_commands = {"list", "add", "get", "edit", "delete", "search", "demo"}
+        expected_commands = {"list", "add", "get", "edit", "delete", "search", "demo", "genpass"}
         assert command_names == expected_commands
 
 
@@ -147,6 +149,7 @@ class TestGetCommandHandler:
             "delete": delete_password,
             "search": search_passwords,
             "demo": run_demo,
+            "genpass": generate_password_command,
         }
 
         for cmd_name, expected_handler in handlers.items():
@@ -176,12 +179,14 @@ class TestGetCommandArgs:
     def test_get_args_for_add_command(self):
         """Test getting args for add command (multiple args)."""
         args = get_command_args("add")
-        assert len(args) == 5  # name, username, password, --url, --notes
+        assert len(args) == 11  # name, username, password, --url, --notes
         assert args[0]["name"] == "name"
         assert args[1]["name"] == "username"
         assert args[2]["name"] == "password"
         assert args[3]["name"] == "--url"
         assert args[4]["name"] == "--notes"
+        assert args[5]["name"] == "--gen"
+        assert args[10]["name"] == "--symbols"
 
     def test_get_args_for_get_command(self):
         """Test getting args for get command (single arg)."""
@@ -423,6 +428,7 @@ class TestCommandIntegrity:
             delete_password,
             search_passwords,
             run_demo,
+            generate_password_command,
         }
 
         registered_handlers = {cmd.handler for cmd in COMMANDS}

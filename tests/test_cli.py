@@ -221,7 +221,7 @@ class TestHandleCliCommand:
         captured = capsys.readouterr()
         assert "Entry 'NonExistent' not found" in captured.out
 
-    @patch("builtins.input", side_effect=["", "", "", ""])
+    @patch("builtins.input", side_effect=["", "n", "", "", ""])
     def test_handle_edit_command(self, mock_input, populated_vault, capsys):
         """Test handling edit command."""
         args = argparse.Namespace(command="edit", name="Gmail")
