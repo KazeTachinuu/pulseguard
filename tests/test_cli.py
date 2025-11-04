@@ -6,6 +6,9 @@ Tests command-line interface including:
 - Error handling (vault errors, unknown commands)
 - Interactive mode entry (no command)
 - Integration with vault operations
+- checks add command fails when no password or --gen flag given
+- ensures CLI rejects both password and --gen together
+- validates boolean flag parsing (e.g. "yes", "0", "1") for --lower, --upper, etc
 """
 
 import argparse
@@ -33,6 +36,10 @@ def temp_vault():
     # Cleanup
     if os.path.exists(temp_file):
         os.unlink(temp_file)
+
+
+def _vault(tmp_path):
+    return Vault(str((tmp_path / "v.json").resolve()))
 
 
 @pytest.fixture
@@ -511,3 +518,81 @@ class TestParserGeneration:
         assert hasattr(args, "notes")
         assert args.url == ""
         assert args.notes == ""
+
+
+class TestAddGenMutualExclusionAndUsage:
+    def test_add_requires_password_or_gen(self, tmp_path, capsys):
+        # name + username only (no password, no --gen) => our handle must error with usage
+        ns = argparse.Namespace(
+            command="add",
+            name="X",
+            username="u",
+            password="",
+            url="",
+            notes="",
+            gen=False,
+            length=16,
+            lower=True,
+            upper=True,
+            digits=True,
+            symbols=False,
+        )
+        with pytest.raises(SystemExit) as e:
+            handle_cli_command(_vault(tmp_path), ns)
+        assert e.value.code == 1
+        out = capsys.readouterr().out
+        assert "Usage: add" in out
+
+    def test_add_password_and_gen_conflict(self, tmp_path, capsys):
+        ns = argparse.Namespace(
+            command="add",
+            name="X",
+            username="u",
+            password="p",
+            url="",
+            notes="",
+            gen=True,
+            length=16,
+            lower=True,
+            upper=True,
+            digits=True,
+            symbols=False,
+        )
+        with pytest.raises(SystemExit) as e:
+            handle_cli_command(_vault(tmp_path), ns)
+        assert e.value.code == 1
+        out = capsys.readouterr().out.lower()
+        assert "cannot use --gen together with a manual password" in out
+        assert "provide either a password or --gen" in out
+
+
+class TestBoolStringParsingRoundTrip:
+    def test_parser_coerces_bool_flags_from_strings(self):
+        p = create_parser()
+        # the custom bool converter in cli allows yes/true/1 strings
+        args = p.parse_args(
+            [
+                "add",
+                "N",
+                "U",
+                "",
+                "--gen",
+                "--length",
+                "18",
+                "--lower",
+                "yes",
+                "--upper",
+                "true",
+                "--digits",
+                "0",  # should be False
+                "--symbols",
+                "1",  # should be True
+            ]
+        )
+        assert args.command == "add"
+        assert args.gen is True
+        assert args.length == 18
+        assert args.lower is True
+        assert args.upper is True
+        assert args.digits is False
+        assert args.symbols is True
