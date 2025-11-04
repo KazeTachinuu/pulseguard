@@ -26,11 +26,11 @@ from pulseguard.operations import (
     add_password,
     delete_password,
     edit_password,
+    generate_password_command,
     get_password,
     list_passwords,
     run_demo,
     search_passwords,
-    generate_password_command,
 )
 
 
@@ -94,7 +94,16 @@ class TestCommandDataStructure:
     def test_specific_commands_exist(self):
         """Test that expected commands are registered."""
         command_names = {cmd.name for cmd in COMMANDS}
-        expected_commands = {"list", "add", "get", "edit", "delete", "search", "demo", "genpass"}
+        expected_commands = {
+            "list",
+            "add",
+            "get",
+            "edit",
+            "delete",
+            "search",
+            "demo",
+            "genpass",
+        }
         assert command_names == expected_commands
 
 

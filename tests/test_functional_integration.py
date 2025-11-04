@@ -18,25 +18,24 @@ import pytest
 
 from pulseguard.models import PasswordEntry
 from pulseguard.vault import Vault, VaultDecryptionError
-from unittest.mock import patch
 
 
-def run_cli(args, vault_path, env=None, input_data=None): # <-- AJOUTER input_data
+def run_cli(args, vault_path, env=None, input_data=None):  # <-- AJOUTER input_data
     """Helper to run CLI commands."""
     cmd = [sys.executable, "-m", "pulseguard"] + args
     if env is None:
         env = os.environ.copy()
     env["PULSEGUARD_VAULT_PATH"] = vault_path
-    
+
     if input_data is None:
-        input_data = "\n" * 10 
-        
+        input_data = "\n" * 10
+
     return subprocess.run(
-        cmd, 
-        capture_output=True, 
-        text=True, 
-        env=env, 
-        input=input_data # <-- UTILISER input_data
+        cmd,
+        capture_output=True,
+        text=True,
+        env=env,
+        input=input_data,  # <-- UTILISER input_data
     )
 
 
@@ -187,8 +186,6 @@ class TestCompleteUserWorkflows:
     #         assert vault3.count() == 2
     #         assert vault3.get("Gmail") is not None
     #         assert vault3.get("GitHub") is not None
-
-
 
     def test_encrypted_vault_complete_workflow(self):
         """FUNCTIONAL: Complete workflow with encrypted vault.
