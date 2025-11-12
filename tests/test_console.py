@@ -8,6 +8,10 @@ Tests the interactive console including:
 - Quit/exit commands
 - Error handling for unknown commands
 - Empty line handling
+- checks add ... --gen ... with custom options
+- ensures usage hint shown when required args missing
+- validates mutual exclusion inside console commands
+- tests genpass command and flag parsing
 """
 
 import os
@@ -19,6 +23,14 @@ import pytest
 from pulseguard.console import Console
 from pulseguard.models import PasswordEntry
 from pulseguard.vault import Vault
+
+
+def _console(tmp_path):
+    v = Vault(str(tmp_path / "v.json"))
+    c = Console(v)
+    c.intro = ""
+    c.prompt = ""
+    return c
 
 
 @pytest.fixture
@@ -459,3 +471,56 @@ class TestConsoleIntegration:
 
         captured = capsys.readouterr()
         assert "newpass" in captured.out
+
+
+class TestConsoleAddGenParsing:
+    @patch("pulseguard.operations.generate_password", return_value="CONSOLEGEN")
+    @patch("pulseguard.operations.copy_to_clipboard", return_value=False)
+    def test_add_with_generator_and_flags(self, mock_gen, mock_clip, tmp_path, capsys):
+        c = _console(tmp_path)
+        c.default(
+            "add Gmail user --gen --length 12 --lower false --upper true --digits false --symbols true --url https://g --notes NoteZ"
+        )
+        out = capsys.readouterr().out
+        assert "Added entry 'Gmail' successfully" in out
+        entry = c.vault.get("Gmail")
+        assert entry.password == "CONSOLEGEN"
+        assert entry.url == "https://g"
+        assert entry.notes == "NoteZ"
+
+    def test_add_missing_both_password_and_gen_shows_usage(self, tmp_path, capsys):
+        c = _console(tmp_path)
+        c.default("add Gmail user")
+        out = capsys.readouterr().out
+        assert "Usage: add" in out
+
+    def test_add_gen_and_password_conflict(self, tmp_path, capsys):
+        c = _console(tmp_path)
+        c.default("add Gmail user pass --gen")
+        out = capsys.readouterr().out.lower()
+        assert "cannot use --gen together with a manual password" in out
+        assert "provide either a password or --gen" in out
+
+
+class TestConsoleGenPassCommand:
+    def test_genpass_parses_flags_and_calls_handler(self, tmp_path, monkeypatch):
+        c = _console(tmp_path)
+
+        # Spy on the actual handler so we don't depend on clipboard env
+        called = {}
+
+        def fake_handler(vault, length, lower, upper, digits, symbols):
+            called["args"] = (length, lower, upper, digits, symbols)
+
+        # Hot-swap the handler resolver to return our spy
+        import pulseguard.commands as cmd_mod
+
+        # Ensure we still resolve the "genpass" name, then replace handler in COMMANDS
+        for cmd in cmd_mod.COMMANDS:
+            if cmd.name == "genpass":
+                cmd.handler = fake_handler
+
+        c.default(
+            "genpass --length 20 --lower false --upper true --digits true --symbols true"
+        )
+        assert called["args"] == (20, False, True, True, True)

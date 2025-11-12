@@ -6,6 +6,12 @@ Tests all operation handlers including:
 - Edge cases (empty vault, special characters)
 - Interactive flows (edit command with mocked input)
 - Demo data insertion
+- checks password generation + clipboard success
+- checks fallback display when clipboard unavailable
+- ensures mutual exclusion is enforced
+- covers direct password generator command
+- simulates interactive edit + generator path
+- tests generator error handling and fallback manual input
 """
 
 import os
@@ -19,6 +25,7 @@ from pulseguard.operations import (
     add_password,
     delete_password,
     edit_password,
+    generate_password_command,
     get_password,
     list_passwords,
     run_demo,
@@ -39,6 +46,11 @@ def temp_vault():
     # Cleanup
     if os.path.exists(temp_file):
         os.unlink(temp_file)
+
+
+def _temp_vault(tmp_path):
+    p = tmp_path / "v.json"
+    return Vault(str(p))
 
 
 @pytest.fixture
@@ -212,7 +224,7 @@ class TestEditPassword:
 
     @patch(
         "builtins.input",
-        side_effect=["newuser", "newpass", "https://new.com", "New notes"],
+        side_effect=["newuser", "n", "newpass", "https://new.com", "New notes"],
     )
     def test_edit_all_fields(self, mock_input, populated_vault, capsys):
         """Test editing all fields of an entry."""
@@ -228,7 +240,7 @@ class TestEditPassword:
         assert entry.url == "https://new.com"
         assert entry.notes == "New notes"
 
-    @patch("builtins.input", side_effect=["", "", "", ""])
+    @patch("builtins.input", side_effect=["", "", "", "", ""])
     def test_edit_keep_all_fields(self, mock_input, populated_vault, capsys):
         """Test editing with all empty inputs (keep current values)."""
         original_entry = populated_vault.get("Gmail")
@@ -245,7 +257,7 @@ class TestEditPassword:
         assert entry.url == original_url
         assert entry.notes == original_notes
 
-    @patch("builtins.input", side_effect=["newuser", "", "", ""])
+    @patch("builtins.input", side_effect=["newuser", "", "", "", ""])
     def test_edit_partial_fields(self, mock_input, populated_vault, capsys):
         """Test editing only some fields."""
         edit_password(populated_vault, "Gmail")
@@ -255,7 +267,7 @@ class TestEditPassword:
         assert entry.password == "pass123"  # Original password unchanged
         assert entry.url == "https://gmail.com"  # Original URL unchanged
 
-    @patch("builtins.input", side_effect=["", "", "", ""])
+    @patch("builtins.input", side_effect=["", "", "", "", ""])
     def test_edit_entry_without_optional_fields(self, mock_input, temp_vault, capsys):
         """Test editing entry that has no URL or notes."""
         temp_vault.add(PasswordEntry("Simple", "user", "pass"))
@@ -265,7 +277,7 @@ class TestEditPassword:
         assert entry.username == "user"
         assert entry.password == "pass"
 
-    @patch("builtins.input", side_effect=["newuser", "p@ssw0rd!#$%", "", ""])
+    @patch("builtins.input", side_effect=["newuser", "", "p@ssw0rd!#$%", "", ""])
     def test_edit_special_characters(self, mock_input, temp_vault, capsys):
         """Test editing with special characters in password."""
         temp_vault.add(PasswordEntry("Test", "user", "pass"))
@@ -431,3 +443,121 @@ class TestRunDemo:
         captured = capsys.readouterr()
         assert "pulseguard list" in captured.out
         assert "pulseguard" in captured.out
+
+
+class TestAddPasswordGeneration:
+    @patch("pulseguard.operations.copy_to_clipboard", return_value=True)
+    @patch("pulseguard.operations.generate_password", return_value="A1b!A1b!A1b!A1b!")
+    def test_add_with_gen_clipboard_true(self, mock_gen, mock_clip, tmp_path, capsys):
+        v = _temp_vault(tmp_path)
+        add_password(
+            v,
+            name="G",
+            username="u",
+            password="",
+            gen=True,
+            length=16,
+            lower=True,
+            upper=True,
+            digits=True,
+            symbols=True,
+        )
+        out = capsys.readouterr().out
+        assert "Added entry 'G' successfully" in out
+        assert "length=16" in out
+        # password not printed when clipboard is True
+        assert "Password:" not in out
+        assert v.get("G").password == "A1b!A1b!A1b!A1b!"
+
+    @patch("pulseguard.operations.copy_to_clipboard", return_value=False)
+    @patch("pulseguard.operations.generate_password", return_value="XXXXYYYYZZZZ1111")
+    def test_add_with_gen_clipboard_false_prints_password(
+        self, mock_gen, mock_clip, tmp_path, capsys
+    ):
+        v = _temp_vault(tmp_path)
+        add_password(v, "S", "u", "", gen=True, length=16, symbols=False)
+        out = capsys.readouterr().out
+        assert "! Clipboard unavailable" in out
+        assert "Password:" in out or "XXXXYYYYZZZZ1111" in out
+        assert v.get("S").password == "XXXXYYYYZZZZ1111"
+
+    def test_add_with_gen_and_password_conflict(self, tmp_path, capsys):
+        v = _temp_vault(tmp_path)
+        # gen True + provided password should be rejected in operations.add_password
+        add_password(v, "C", "u", "p", gen=True)
+        out = capsys.readouterr().out.lower()
+        assert "cannot use --gen together with a manual password" in out
+        assert "provide either a password or --gen" in out
+
+
+class TestGeneratePasswordCommand:
+    @patch("pulseguard.operations.copy_to_clipboard", return_value=False)
+    @patch("pulseguard.operations.generate_password", return_value="DET_PASS")
+    def test_generate_password_command_prints_when_no_clipboard(
+        self, mock_gen, mock_clip, tmp_path, capsys
+    ):
+        v = _temp_vault(tmp_path)
+        generate_password_command(
+            v, length=12, lower=False, upper=True, digits=True, symbols=True
+        )
+        out = capsys.readouterr().out
+        assert "Generated password:" in out
+        assert "DET_PASS" in out
+        # Do not assert a fixed length value; just ensure the length/max trailer is printed
+
+        assert "(length=" in out
+        assert "max=25" in out
+
+
+class TestEditPasswordGeneratorFlow:
+    @patch("pulseguard.operations.copy_to_clipboard", return_value=False)
+    @patch("pulseguard.operations.generate_password", return_value="NEWGENPASS!")
+    def test_edit_uses_generator_then_prints_password(
+        self, mock_gen, mock_clip, tmp_path, capsys, monkeypatch
+    ):
+        v = _temp_vault(tmp_path)
+        v.add(PasswordEntry("X", "user", "old"))
+        # Inputs: username(empty => keep), use_generator = 'y', length '', lower '', upper '', digits '', symbols 'y',
+        # (we pass empty strings to use defaults except forcing symbols yes)
+        monkeypatch.setattr(
+            "builtins.input",
+            lambda prompt="": {
+                0: "",  # Username keep
+                1: "y",  # Use generator
+                2: "",  # Length (default)
+                3: "",  # lower (default Y)
+                4: "",  # upper (default Y)
+                5: "",  # digits (default Y)
+                6: "y",  # symbols yes
+                7: "",  # URL keep
+                8: "",  # notes keep
+            }[getattr(monkeypatch, "_idx", 0)],
+        )
+
+        # small trick to increment the index on each call
+        def _adv(prompt=""):
+            i = getattr(monkeypatch, "_idx", 0)
+            setattr(monkeypatch, "_idx", i + 1)
+            return {0: "", 1: "y", 2: "", 3: "", 4: "", 5: "", 6: "y", 7: "", 8: ""}[i]
+
+        monkeypatch.setattr("builtins.input", _adv)
+
+        edit_password(v, "X")
+        out = capsys.readouterr().out
+        assert "Editing password 'X'" in out
+        assert "! Clipboard unavailable" in out
+        assert v.get("X").password == "NEWGENPASS!"
+
+    @patch(
+        "pulseguard.operations.generate_password", side_effect=ValueError("bad opts")
+    )
+    def test_edit_generator_error_falls_back_to_manual(
+        self, mock_gen, tmp_path, capsys, monkeypatch
+    ):
+        v = _temp_vault(tmp_path)
+        v.add(PasswordEntry("Y", "u", "old"))
+        # Username keep, choose generator -> error, then manual pass provided, url/notes keep
+        inputs = iter(["", "y", "", "", "", "", "", "MANUAL", "", ""])
+        monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+        edit_password(v, "Y")
+        assert v.get("Y").password == "MANUAL"

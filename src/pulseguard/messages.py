@@ -15,6 +15,11 @@ ERROR_USAGE_EDIT = "Usage: edit <name>"
 ERROR_UNKNOWN_COMMAND = "Unknown command: {command}"
 ERROR_OPERATION_CANCELLED = "Operation cancelled."
 ERROR_GENERIC = "Error: {error}"
+ERROR_MUTUALLY_EXCLUSIVE_GEN = (
+    "Cannot use --gen together with a manual password."
+    "Provide either a password or --gen."
+)
+
 
 # Info messages
 INFO_NO_ENTRIES = "No entries found."

@@ -14,8 +14,10 @@ from .commands import (
 from .console import Console
 from .messages import (
     ERROR_GENERIC,
+    ERROR_MUTUALLY_EXCLUSIVE_GEN,
     ERROR_OPERATION_CANCELLED,
     ERROR_UNKNOWN_COMMAND,
+    ERROR_USAGE_ADD,
     INFO_HELP,
 )
 from .vault import Vault, VaultDecryptionError, VaultError
@@ -33,18 +35,28 @@ def create_parser() -> argparse.ArgumentParser:
 
     for cmd in COMMANDS:
         subparser = subparsers.add_parser(cmd.name, help=cmd.description)
-
         for arg in cmd.args:
             arg_name = arg["name"]
-            arg_help = arg["help"]
-
+            arg_help = arg.get("help", "")
             if arg_name.startswith("--"):
-                subparser.add_argument(
-                    arg_name, default=arg.get("default", ""), help=arg_help
-                )
+                kwargs = {"help": arg_help}
+                if "action" in arg:
+                    kwargs["action"] = arg["action"]
+                if "type" in arg:
+                    kwargs["type"] = arg["type"]
+                if "default" in arg:
+                    kwargs["default"] = arg["default"]
+                if arg.get("type") is bool:
+                    kwargs["type"] = lambda v: str(v).lower() in (
+                        "1",
+                        "true",
+                        "yes",
+                        "y",
+                    )
+
+                subparser.add_argument(arg_name, **kwargs)
             else:
                 subparser.add_argument(arg_name, help=arg_help)
-
     return parser
 
 
@@ -60,6 +72,18 @@ def handle_cli_command(vault: Vault, args: argparse.Namespace) -> None:
     handler_args = [vault]
 
     for arg in cmd_args:
+        if args.command == "add":
+            has_password = bool(getattr(args, "password", ""))
+            wants_gen = bool(getattr(args, "gen", False))
+
+            if not has_password and not wants_gen:
+                print(ERROR_USAGE_ADD)
+                sys.exit(1)
+
+            if has_password and wants_gen:
+                print(ERROR_MUTUALLY_EXCLUSIVE_GEN)
+                sys.exit(1)
+
         arg_name = arg["name"].lstrip("-")
         if hasattr(args, arg_name):
             handler_args.append(getattr(args, arg_name))

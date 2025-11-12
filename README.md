@@ -15,6 +15,7 @@ uv sync
 ```bash
 pulseguard list                           # List passwords
 pulseguard add Gmail user@example.com pwd # Add password
+pulseguard genpass --length 20 --symbols true --upper true --lower true --digits true # genPass
 pulseguard get Gmail                      # Get password details
 pulseguard edit Gmail                     # Edit password
 pulseguard delete Gmail                   # Delete password
@@ -22,6 +23,22 @@ pulseguard search gmail                   # Search passwords
 pulseguard demo                           # Add sample data
 pulseguard                               # Interactive console
 ```
+
+#### Add new entry and generate password
+
+When `--gen` is provided, PulseGuard generates the password. All generation flags are optional:
+- `--length <int>` (required only if provided, must be a valid integer)
+- `--symbols true|false` (default: true)
+- `--upper true|false` (default: true)
+- `--lower true|false` (default: true)
+- `--digits true|false` (default: true)
+
+Examples:
+```bash
+pulseguard add Gmail user@example.com dummy --gen
+pulseguard add Gmail user@example.com dummy --gen --length 18
+pulseguard add Gmail user@example.com dummy --gen --length 20 --symbols false --upper true --lower true --digits true
+
 
 ### Python API
 
