@@ -5,6 +5,7 @@ from enum import Enum
 from getpass import getpass
 from typing import Optional
 
+import inquirer
 import questionary
 import typer
 from rich.prompt import Confirm
@@ -13,7 +14,7 @@ from . import ui
 from .config import config
 from .models import PasswordEntry
 from .passwordgen import DEFAULT_LEN, GenOptions, copy_to_clipboard, generate_password
-from .ui import select_entry, select_style
+from .ui import UIPrompt, select_entry, select_style
 from .vault import (
     Vault,
     VaultDecryptionError,
@@ -74,14 +75,6 @@ class QuickAction(str, Enum):
     DELETE = "Delete"
     ADD_FAVORITE = "Add to favorites"
     REMOVE_FAVORITE = "Remove from favorites"
-
-
-class UIPrompt(str, Enum):
-    """Special UI prompts and markers."""
-
-    CREATE_CATEGORY = "[Create new category]"
-    VIEW_ALL_CATEGORIES = "All categories (view all)"
-    BACK = "← Back"
 
 
 class Message(str, Enum):
@@ -172,33 +165,34 @@ def prompt_and_generate_password() -> Optional[str]:
         )
         length = int(length_str) if length_str else DEFAULT_LEN
 
-        # Use checkbox for character type selection
-        char_types = questionary.checkbox(
-            "Select character types:",
-            choices=[
-                questionary.Choice(
-                    "Lowercase letters (a-z)", value="lower", checked=True
-                ),
-                questionary.Choice(
-                    "Uppercase letters (A-Z)", value="upper", checked=True
-                ),
-                questionary.Choice("Digits (0-9)", value="digits", checked=True),
-                questionary.Choice("Symbols (!@#$...)", value="symbols", checked=False),
-            ],
-            style=select_style,
-        ).ask()
+        # Clean checkbox selection using inquirer - space to toggle
+        questions = [
+            inquirer.Checkbox(
+                "char_types",
+                message="Select character types (space to toggle)",
+                choices=[
+                    ("Lowercase (a-z)", "lower"),
+                    ("Uppercase (A-Z)", "upper"),
+                    ("Digits (0-9)", "digits"),
+                    ("Symbols (!@#$...)", "symbols"),
+                ],
+                default=["lower", "upper", "digits"],
+            ),
+        ]
 
-        if not char_types:
+        answers = inquirer.prompt(questions)
+        if not answers or not answers["char_types"]:
             ui.error("At least one character type must be selected")
             return None
 
-        # Convert selected types to boolean flags
-        lower = "lower" in char_types
-        upper = "upper" in char_types
-        digits = "digits" in char_types
-        symbols = "symbols" in char_types
+        # Convert to boolean flags
+        selected = answers["char_types"]
+        lower = "lower" in selected
+        upper = "upper" in selected
+        digits = "digits" in selected
+        symbols = "symbols" in selected
 
-        required_chars = len(char_types)
+        required_chars = len(selected)
         if length < required_chars:
             ui.error(
                 f"Password length ({length}) must be at least {required_chars} "

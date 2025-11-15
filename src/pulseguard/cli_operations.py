@@ -25,12 +25,12 @@ def core_add_entry(vault: Vault) -> None:
     # Always prompt for required fields
     name = ui.prompt("Entry name")
     if not name:
-        ui.info("Cancelled")
+        ui.info(Message.CANCELLED.value)
         return
 
     username = ui.prompt("Username")
     if not username:
-        ui.info("Cancelled")
+        ui.info(Message.CANCELLED.value)
         return
 
     # Select category
@@ -136,56 +136,8 @@ def show_entry_with_quick_actions(vault: Vault, entry: PasswordEntry) -> bool:
                     ui.warning("Clipboard unavailable")
 
             elif action == QuickAction.EDIT.value:
-                # Edit the current entry directly (bypass selection)
-                ui.info(f"Editing '{entry.name}' (press Enter to keep current value)")
-
-                new_username = ui.prompt("Username", entry.username)
-                new_url = ui.prompt("URL", entry.url)
-                new_notes = ui.prompt("Notes", entry.notes)
-
-                # Handle category change
-                current_category = entry.category or Config.DEFAULT_CATEGORY
-                if Confirm.ask(
-                    f"Change category? (current: {current_category})", default=False
-                ):
-                    new_category = select_category(
-                        vault,
-                        f"Select new category (current: {current_category})",
-                        include_new=True,
-                    )
-                    if not new_category:
-                        new_category = current_category
-                else:
-                    new_category = current_category
-
-                # Handle password change
-                if Confirm.ask("Change password?", default=False):
-                    if Confirm.ask("Generate new password?", default=True):
-                        new_password = prompt_and_generate_password()
-                        if new_password is None:
-                            new_password = entry.password
-                    else:
-                        from getpass import getpass
-
-                        new_password = getpass("New password: ")
-                else:
-                    new_password = entry.password
-
-                updated_entry = PasswordEntry(
-                    name=entry.name,
-                    username=new_username,
-                    password=new_password,
-                    url=new_url,
-                    notes=new_notes,
-                    category=new_category,
-                    tags=entry.tags,
-                    favorite=entry.favorite,
-                )
-                vault.add(updated_entry)
-                ui.success(f"Updated entry '{entry.name}'")
-
-                # Refresh entry
-                refreshed = vault.get(entry.name, track_access=False)
+                # Edit the current entry (without re-selecting)
+                refreshed = edit_existing_entry(vault, entry)
                 if not refreshed:
                     ui.info("Entry was deleted")
                     return True
@@ -214,7 +166,7 @@ def show_entry_with_quick_actions(vault: Vault, entry: PasswordEntry) -> bool:
                     ui.info("Deletion cancelled")
 
         except (KeyboardInterrupt, EOFError):
-            ui.info("\nCancelled")
+            ui.info(f"\n{Message.CANCELLED.value}")
             vault.save_if_dirty()
             return False
 
@@ -233,12 +185,12 @@ def core_get_entry(vault: Vault) -> None:
     show_entry_with_quick_actions(vault, entry)
 
 
-def core_edit_entry(vault: Vault) -> None:
-    """Core logic for editing an entry."""
-    entry = select_entry(vault, "Select entry to edit", track_access=False)
-    if not entry:
-        return
+def edit_existing_entry(vault: Vault, entry: PasswordEntry) -> Optional[PasswordEntry]:
+    """
+    Edit an existing entry (without re-selecting it).
 
+    Returns updated entry, or None if the entry cannot be retrieved after update.
+    """
     ui.info(f"Editing '{entry.name}' (press Enter to keep current value)")
 
     new_username = ui.prompt("Username", entry.username)
@@ -254,7 +206,7 @@ def core_edit_entry(vault: Vault) -> None:
             include_new=True,
         )
         if not new_category:
-            new_category = current_category  # Keep existing if cancelled
+            new_category = current_category
     else:
         new_category = current_category
 
@@ -263,7 +215,7 @@ def core_edit_entry(vault: Vault) -> None:
         if Confirm.ask("Generate new password?", default=True):
             new_password = prompt_and_generate_password()
             if new_password is None:
-                new_password = entry.password  # Keep existing if generation cancelled
+                new_password = entry.password
         else:
             new_password = getpass("New password: ")
     else:
@@ -276,11 +228,23 @@ def core_edit_entry(vault: Vault) -> None:
         url=new_url,
         notes=new_notes,
         category=new_category,
-        tags=entry.tags,  # Preserve tags
-        favorite=entry.favorite,  # Preserve favorite status
+        tags=entry.tags,
+        favorite=entry.favorite,
     )
     vault.add(updated_entry)
     ui.success(f"Updated entry '{entry.name}'")
+
+    # Return refreshed entry
+    return vault.get(entry.name, track_access=False)
+
+
+def core_edit_entry(vault: Vault) -> None:
+    """Core logic for editing an entry."""
+    entry = select_entry(vault, "Select entry to edit", track_access=False)
+    if not entry:
+        return
+
+    edit_existing_entry(vault, entry)
 
 
 def core_delete_entry(vault: Vault) -> None:
@@ -497,7 +461,7 @@ def core_move_entries_to_category(vault: Vault) -> None:
         f"Move {len(entries)} entries from '{from_category}' to '{to_category}'?",
         default=True,
     ):
-        ui.info("Cancelled")
+        ui.info(Message.CANCELLED.value)
         return
 
     # Move all entries

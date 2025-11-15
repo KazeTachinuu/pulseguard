@@ -100,16 +100,18 @@ def copy_to_clipboard(text: str) -> bool:
             pass
 
     # in case it failed give more info and add fallback
+    p = None
     try:
         if sys.platform == "darwin":
             p = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE)
             p.communicate(input=text.encode("utf-8"), timeout=5)
             return p.returncode == 0
         elif sys.platform.startswith("linux"):
-            # Requires xclip or xsel installed
+            # Try Wayland (wl-copy), then X11 (xclip, xsel) clipboard tools
             for cmd in (
-                ["xclip", "-selection", "clipboard"],
-                ["xsel", "--clipboard", "--input"],
+                ["wl-copy"],  # Wayland
+                ["xclip", "-selection", "clipboard"],  # X11
+                ["xsel", "--clipboard", "--input"],  # X11
             ):
                 try:
                     p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
@@ -127,7 +129,7 @@ def copy_to_clipboard(text: str) -> bool:
             p.communicate(input=text.encode("utf-8"), timeout=5)
             return p.returncode == 0
     except subprocess.TimeoutExpired:
-        if "p" in locals():
+        if p is not None:
             p.kill()
             p.wait()
     except Exception:

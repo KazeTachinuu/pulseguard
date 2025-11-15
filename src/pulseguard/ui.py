@@ -1,6 +1,7 @@
 """Rich UI utilities for beautiful terminal output."""
 
 from datetime import datetime
+from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
 import questionary
@@ -15,18 +16,25 @@ from .models import PasswordEntry
 if TYPE_CHECKING:
     from .vault import Vault
 
-PROMPT_CREATE_CATEGORY = "[Create new category]"
+
+class UIPrompt(str, Enum):
+    """Special UI prompts and markers."""
+
+    CREATE_CATEGORY = "[Create new category]"
+    VIEW_ALL_CATEGORIES = "All categories (view all)"
+    BACK = "← Back"
+
 
 console = Console()
 
-# Clean questionary style - minimal highlighting
+# Clean questionary style - minimal highlighting for select/autocomplete
 select_style = questionary.Style(
     [
         ("qmark", "fg:#5f87af bold"),  # Question mark
         ("question", "bold"),  # Question text
-        ("pointer", "fg:#5f87af bold"),  # Selection pointer (>, checkbox)
+        ("pointer", "fg:#5f87af bold"),  # Selection pointer (>)
         ("highlighted", "fg:#ffffff bg:#5f87af"),  # Current line highlight
-        ("selected", ""),  # Checked items (no color, just checkbox indicator)
+        ("selected", ""),  # Selected items
         ("separator", "fg:#6c6c6c"),  # Separators
         ("instruction", "fg:#6c6c6c"),  # Instructions
         ("text", ""),  # Plain text
@@ -310,7 +318,7 @@ def select_category(
     existing = vault.get_all_categories() if vault else []
     choices = existing.copy()
     if include_new:
-        choices.insert(0, PROMPT_CREATE_CATEGORY)
+        choices.insert(0, UIPrompt.CREATE_CATEGORY.value)
 
     try:
         answer = questionary.select(
@@ -322,7 +330,7 @@ def select_category(
         if answer is None:
             return None
 
-        if answer == PROMPT_CREATE_CATEGORY:
+        if answer == UIPrompt.CREATE_CATEGORY.value:
             new_cat = prompt("New category name")
             return new_cat if new_cat else None
 
