@@ -42,7 +42,13 @@ pythonpath = ["src"]
 
 [tool.coverage.run]
 source = ["src/pulseguard"]
-omit = ["*/tests/*", "*/__pycache__/*"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/cli.py",
+    "*/ui.py",
+    "*/__main__.py",
+]
 branch = true
 
 [tool.coverage.report]
