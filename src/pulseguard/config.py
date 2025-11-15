@@ -9,6 +9,7 @@ class Config:
 
     DEFAULT_VAULT_PATH = "~/.pulseguard/vault.json"
     VAULT_PATH_ENV = "PULSEGUARD_VAULT_PATH"
+    DEFAULT_CATEGORY = "Uncategorized"
 
     def __init__(self):
         """Initialize configuration with environment variable support."""

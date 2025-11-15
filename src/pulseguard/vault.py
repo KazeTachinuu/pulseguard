@@ -9,7 +9,7 @@ import tempfile
 import warnings
 from typing import List, Optional
 
-from .config import config
+from .config import Config, config
 from .crypto import (
     CryptoError,
     DecryptionError,
@@ -67,6 +67,7 @@ class Vault:
         self.master_password = master_password
         self.entries: List[PasswordEntry] = []
         self._salt: Optional[bytes] = None
+        self._dirty = False
         self._load()
 
     def _is_encrypted_file(self, content: str) -> bool:
@@ -202,8 +203,18 @@ class Vault:
         except OSError:
             pass
 
-    def add(self, entry: PasswordEntry) -> None:
+    def save_if_dirty(self) -> bool:
+        """Save vault if there are unsaved changes."""
+        if self._dirty:
+            self._save()
+            self._dirty = False
+            return True
+        return False
+
+    def add(self, entry: PasswordEntry, update_timestamp: bool = True) -> None:
         """Add or update a password entry."""
+        if update_timestamp:
+            entry.mark_updated()
         self.remove(entry.name)
         self.entries.append(entry)
         self._save()
@@ -217,22 +228,76 @@ class Vault:
             return True
         return False
 
-    def get(self, name: str) -> Optional[PasswordEntry]:
-        """Get a password entry by name."""
-        return next((e for e in self.entries if e.name == name), None)
+    def get(self, name: str, track_access: bool = True) -> Optional[PasswordEntry]:
+        """Get password entry by name. Call save_if_dirty() to persist access tracking."""
+        entry = next((e for e in self.entries if e.name == name), None)
+        if entry and track_access:
+            entry.mark_accessed()
+            self._dirty = True
+        return entry
 
     def get_all(self) -> List[PasswordEntry]:
         """Get all password entries."""
         return self.entries.copy()
 
+    def get_favorites(self) -> List[PasswordEntry]:
+        """Get all favorite entries."""
+        return [e for e in self.entries if e.favorite]
+
+    def get_recent(self, limit: int = 5) -> List[PasswordEntry]:
+        """Get recently accessed entries."""
+        accessed = [e for e in self.entries if e.last_accessed is not None]
+        # Sort by last_accessed descending (most recent first)
+        # Type checker doesn't narrow None in lambda, but we've filtered above
+        accessed.sort(key=lambda e: e.last_accessed or e.created_at, reverse=True)  # type: ignore[arg-type, return-value]
+        return accessed[:limit]
+
     def search(self, query: str) -> List[PasswordEntry]:
-        """Search entries by name or username."""
+        """Search entries by name, username, URL, or notes."""
         query_lower = query.lower()
         return [
             e
             for e in self.entries
-            if query_lower in e.name.lower() or query_lower in e.username.lower()
+            if query_lower in e.name.lower()
+            or query_lower in e.username.lower()
+            or query_lower in (e.url or "").lower()
+            or query_lower in (e.notes or "").lower()
         ]
+
+    def search_by_tag(self, tag: str) -> List[PasswordEntry]:
+        """Search entries by tag."""
+        tag_lower = tag.lower()
+        return [e for e in self.entries if any(t.lower() == tag_lower for t in e.tags)]
+
+    def get_all_tags(self) -> List[str]:
+        """Get all unique tags used in vault."""
+        tags = set()
+        for entry in self.entries:
+            tags.update(entry.tags)
+        return sorted(list(tags))
+
+    def get_all_categories(self) -> List[str]:
+        """Get all unique categories used in vault, sorted."""
+        categories = set(e.category for e in self.entries)
+        # Sort with Uncategorized last
+        sorted_cats = sorted(categories - {Config.DEFAULT_CATEGORY})
+        if Config.DEFAULT_CATEGORY in categories:
+            sorted_cats.append(Config.DEFAULT_CATEGORY)
+        return sorted_cats
+
+    def get_by_category(self, category: str) -> List[PasswordEntry]:
+        """Get all entries in a specific category."""
+        return [e for e in self.entries if e.category == category]
+
+    def get_entries_by_category(self) -> dict[str, List[PasswordEntry]]:
+        """Get entries grouped by category."""
+        by_category: dict[str, List[PasswordEntry]] = {}
+        for entry in self.entries:
+            cat = entry.category or Config.DEFAULT_CATEGORY
+            if cat not in by_category:
+                by_category[cat] = []
+            by_category[cat].append(entry)
+        return by_category
 
     def count(self) -> int:
         """Get the number of entries without loading them."""
@@ -310,3 +375,11 @@ def get_vault_stats(vault: Vault) -> dict:
         "duplicates": len(duplicates),
         "reused": len(reused),
     }
+
+
+def sort_categories_uncategorized_last(categories: List[str]) -> List[str]:
+    """Sort categories alphabetically with DEFAULT_CATEGORY at the end."""
+    sorted_cats = sorted(c for c in categories if c != Config.DEFAULT_CATEGORY)
+    if Config.DEFAULT_CATEGORY in categories:
+        sorted_cats.append(Config.DEFAULT_CATEGORY)
+    return sorted_cats

@@ -9,12 +9,30 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
+from .config import Config
 from .models import PasswordEntry
 
 if TYPE_CHECKING:
     from .vault import Vault
 
+PROMPT_CREATE_CATEGORY = "[Create new category]"
+
 console = Console()
+
+# Clean questionary style - minimal highlighting
+select_style = questionary.Style(
+    [
+        ("qmark", "fg:#5f87af bold"),  # Question mark
+        ("question", "bold"),  # Question text
+        ("pointer", "fg:#5f87af bold"),  # Selection pointer (>, checkbox)
+        ("highlighted", "fg:#ffffff bg:#5f87af"),  # Current line highlight
+        ("selected", ""),  # Checked items (no color, just checkbox indicator)
+        ("separator", "fg:#6c6c6c"),  # Separators
+        ("instruction", "fg:#6c6c6c"),  # Instructions
+        ("text", ""),  # Plain text
+        ("answer", "fg:#5f87af bold"),  # User's answer
+    ]
+)
 
 
 def success(message: str) -> None:
@@ -44,9 +62,14 @@ def confirm(message: str, default: bool = False) -> bool:
 
 def prompt(message: str, default: str = "") -> str:
     """Prompt for input with optional default."""
-    if default:
-        return Prompt.ask(message, default=default)
-    return Prompt.ask(message)
+    try:
+        if default:
+            result = Prompt.ask(message, default=default)
+        else:
+            result = Prompt.ask(message)
+        return result if result is not None else ""
+    except (KeyboardInterrupt, EOFError):
+        return ""
 
 
 def humanize_date(dt: Optional[datetime]) -> str:
@@ -84,51 +107,126 @@ def humanize_date(dt: Optional[datetime]) -> str:
 def show_entries_table(
     entries: List[PasswordEntry], title: str = "Password Vault"
 ) -> None:
-    """Display entries in a beautiful table."""
+    """Display entries in a table format."""
     if not entries:
         info("No entries found")
         return
 
-    table = Table(title=title, show_lines=True, expand=True)
+    table = Table(title=title, show_lines=False, expand=True)
     table.add_column("Name", style="cyan bold", no_wrap=True)
     table.add_column("Username", style="green")
+    table.add_column("Category", style="magenta")
     table.add_column("URL", style="blue dim")
-    table.add_column("Created", style="yellow", justify="right")
+    table.add_column("Updated", style="dim", justify="right")
 
-    for entry in entries:
+    for entry in sorted(entries, key=lambda e: e.name.lower()):
+        name_display = f"★ {entry.name}" if entry.favorite else entry.name
         table.add_row(
-            entry.name,
+            name_display,
             entry.username,
+            entry.category or "—",
             entry.url or "—",
-            humanize_date(entry.created_at),
+            humanize_date(entry.updated_at),
         )
 
     console.print(table)
     console.print(f"[dim]Total: {len(entries)} entries[/dim]")
 
 
+def show_categorized_entries(entries_by_category: dict) -> None:
+    """Display entries grouped by category in a compact format."""
+    if not entries_by_category or all(not v for v in entries_by_category.values()):
+        info("No entries found")
+        return
+
+    console.print()
+
+    from .vault import sort_categories_uncategorized_last
+
+    categories = sort_categories_uncategorized_last(list(entries_by_category.keys()))
+
+    total_count = sum(len(entries) for entries in entries_by_category.values())
+
+    for category in categories:
+        entries = entries_by_category[category]
+        if not entries:
+            continue
+
+        # Category header - simple and clean
+        console.print(f"\n[cyan]{category}[/cyan] [dim]({len(entries)})[/dim]")
+
+        # List entries in category - one line each
+        for entry in sorted(entries, key=lambda e: e.name.lower()):
+            # Build single line display
+            parts = []
+
+            # Name (with favorite marker if needed)
+            if entry.favorite:
+                parts.append(f"[bold]★ {entry.name}[/bold]")
+            else:
+                parts.append(f"{entry.name}")
+
+            # Username
+            parts.append(f"[dim]{entry.username}[/dim]")
+
+            # URL (optional, truncated)
+            if entry.url:
+                url_display = (
+                    entry.url if len(entry.url) <= 35 else entry.url[:32] + "..."
+                )
+                parts.append(f"[blue dim]{url_display}[/blue dim]")
+
+            console.print(f"  {' · '.join(parts)}")
+
+    console.print(f"\n[dim]Total: {total_count} entries[/dim]\n")
+
+
 def show_entry_panel(entry: PasswordEntry, show_password: bool = False) -> None:
-    """Display single entry in a detailed panel."""
+    """Display single entry in a panel with subtle coloring."""
     content = []
-    content.append(f"[cyan bold]Name:[/cyan bold] {entry.name}")
-    content.append(f"[green bold]Username:[/green bold] {entry.username}")
+
+    # Title
+    title = f"{'★ ' if entry.favorite else ''}{entry.name}"
+
+    # Info with subtle coloring
+    content.append(f"[green]Username:[/green] {entry.username}")
 
     if show_password:
-        content.append(f"[red bold]Password:[/red bold] {entry.password}")
+        content.append(f"[yellow]Password:[/yellow] {entry.password}")
     else:
-        content.append(f"[red bold]Password:[/red bold] {'•' * 8}")
+        pwd_len = len(entry.password)
+        strength = "Strong" if pwd_len >= 16 else "Medium" if pwd_len >= 12 else "Weak"
+        strength_color = (
+            "green" if pwd_len >= 16 else "yellow" if pwd_len >= 12 else "red"
+        )
+        content.append(
+            f"[yellow]Password:[/yellow] {'•' * 12}  "
+            f"[dim]([{strength_color}]{strength}[/{strength_color}], {pwd_len} chars)[/dim]"
+        )
 
     if entry.url:
-        content.append(f"[blue bold]URL:[/blue bold] {entry.url}")
+        content.append(f"[blue]URL:[/blue] {entry.url}")
+
+    if entry.category and entry.category != Config.DEFAULT_CATEGORY:
+        content.append(f"[magenta]Category:[/magenta] {entry.category}")
 
     if entry.notes:
-        content.append(f"[yellow bold]Notes:[/yellow bold] {entry.notes}")
+        content.append(f"\n[cyan]Notes:[/cyan]\n{entry.notes}")
 
-    content.append(f"[dim]Created: {humanize_date(entry.created_at)}[/dim]")
+    if entry.tags:
+        content.append(f"\n[magenta]Tags:[/magenta] {', '.join(entry.tags)}")
+
+    # Temporal info
+    content.append("")
+    content.append(f"[dim]Updated {humanize_date(entry.updated_at)}[/dim]")
+    if entry.last_accessed:
+        content.append(
+            f"[dim]Last used {humanize_date(entry.last_accessed)} • Used {entry.access_count} times[/dim]"
+        )
 
     panel = Panel(
         "\n".join(content),
-        title=f"{entry.name}",
+        title=title,
         border_style="cyan",
         expand=False,
     )
@@ -153,40 +251,82 @@ def show_password_generated(password: str, copied: bool = False) -> None:
 
 
 def select_entry(
-    vault: "Vault", message: str = "Select entry"
+    vault: "Vault",
+    message: str = "Select entry",
+    track_access: bool = True,
+    entries: Optional[List[PasswordEntry]] = None,
 ) -> Optional[PasswordEntry]:
     """
-    Interactive entry selector with fuzzy search.
+    Interactive entry selector.
+
+    Args:
+        vault: Vault instance
+        message: Prompt message
+        track_access: Whether to track access
+        entries: Optional list of entries to choose from (if None, uses all)
 
     Returns None if user cancels (Ctrl+C).
     """
-    entries = vault.get_all()
+    if entries is None:
+        entries = vault.get_all()
 
     if not entries:
+        info("No entries found")
         return None
 
     sorted_entries = sorted(entries, key=lambda e: e.name.lower())
-    choices = [f"{entry.name} ({entry.username})" for entry in sorted_entries]
-    name_map = {
-        f"{entry.name} ({entry.username})": entry.name for entry in sorted_entries
-    }
+
+    # Build simple choice labels
+    choices = []
+    name_map = {}
+
+    for entry in sorted_entries:
+        # Simple format: Name (username) or ★ Name (username) for favorites
+        prefix = "★ " if entry.favorite else ""
+        label = f"{prefix}{entry.name} ({entry.username})"
+        choices.append(label)
+        name_map[label] = entry.name
 
     try:
         answer = questionary.autocomplete(
             message,
             choices=choices,
-            style=questionary.Style(
-                [
-                    ("highlighted", "fg:cyan bold"),
-                    ("pointer", "fg:cyan bold"),
-                ]
-            ),
+            style=select_style,
         ).ask()
 
-        if answer is None:  # User cancelled
+        if answer is None or answer == "" or answer not in name_map:
             return None
 
-        return vault.get(name_map[answer])
+        return vault.get(name_map[answer], track_access=track_access)
+
+    except KeyboardInterrupt:
+        return None
+
+
+def select_category(
+    vault: Optional["Vault"], message: str = "Select category", include_new: bool = True
+) -> Optional[str]:
+    """Interactive category selector."""
+    existing = vault.get_all_categories() if vault else []
+    choices = existing.copy()
+    if include_new:
+        choices.insert(0, PROMPT_CREATE_CATEGORY)
+
+    try:
+        answer = questionary.select(
+            message,
+            choices=choices,
+            style=select_style,
+        ).ask()
+
+        if answer is None:
+            return None
+
+        if answer == PROMPT_CREATE_CATEGORY:
+            new_cat = prompt("New category name")
+            return new_cat if new_cat else None
+
+        return answer
 
     except KeyboardInterrupt:
         return None

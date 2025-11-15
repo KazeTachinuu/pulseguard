@@ -3,7 +3,7 @@
 import json
 import os
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -281,10 +281,10 @@ class TestVaultDataIntegrity:
             vault_path = os.path.join(tmpdir, "vault.json")
             vault1 = Vault(file_path=vault_path)
 
-            before = datetime.now()
+            before = datetime.now(timezone.utc)
             entry = PasswordEntry("Test", "user", "pass")
             vault1.add(entry)
-            after = datetime.now()
+            after = datetime.now(timezone.utc)
 
             assert entry.created_at is not None
             assert before <= entry.created_at <= after
