@@ -248,9 +248,7 @@ class TestPlaintextVaultBackwardCompatibility:
                 vault1.add(PasswordEntry("OldEntry", "user", "pass"))
 
             # Load as encrypted (migration)
-            vault2 = Vault(temp_file, master_password=None)
-            vault2.master_password = "new_password"
-            vault2._is_encrypted = True
+            vault2 = Vault(temp_file, master_password="new_password")
 
             # Add new entry (will save as encrypted)
             vault2.add(PasswordEntry("NewEntry", "user2", "pass2"))

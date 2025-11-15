@@ -264,7 +264,6 @@ class TestCompleteUserWorkflows:
             # Load plaintext vault (will warn)
             with pytest.warns():
                 vault_migrate = Vault(file_path=vault_path, master_password=None)
-                vault_migrate.count()
 
                 # Get all entries before migration
                 old_entries = vault_migrate.get_all()

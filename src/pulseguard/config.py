@@ -8,15 +8,11 @@ class Config:
     """Configuration settings for PulseGuard."""
 
     DEFAULT_VAULT_PATH = "~/.pulseguard/vault.json"
-    DEFAULT_PROMPT = "pulseguard> "
-    DEFAULT_INTRO = "PulseGuard Console. Type 'help' for commands or 'quit' to exit."
     VAULT_PATH_ENV = "PULSEGUARD_VAULT_PATH"
 
     def __init__(self):
         """Initialize configuration with environment variable support."""
         self.vault_path = self._get_vault_path()
-        self.prompt = self.DEFAULT_PROMPT
-        self.intro = self.DEFAULT_INTRO
 
     def _get_vault_path(self) -> str:
         """Get vault path from environment or use default."""

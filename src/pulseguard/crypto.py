@@ -1,11 +1,16 @@
 """Cryptographic operations for secure vault encryption."""
 
 import base64
-import hashlib
 import secrets
 from typing import Optional, Tuple
 
 from cryptography.fernet import Fernet, InvalidToken
+
+# Import HashingError at module level with fallback
+try:
+    from argon2.exceptions import HashingError
+except ImportError:
+    HashingError = type('HashingError', (Exception,), {})
 
 # Argon2id parameters (OWASP recommendations for password storage)
 ARGON2_TIME_COST = 2  # Number of iterations
@@ -60,7 +65,7 @@ def derive_key(master_password: str, salt: bytes) -> bytes:
         )
 
         return key
-    except Exception as e:
+    except (ValueError, TypeError, ImportError, HashingError) as e:
         raise CryptoError(f"Key derivation failed: {e}") from e
 
 
@@ -69,7 +74,7 @@ def create_fernet(key: bytes) -> Fernet:
     try:
         fernet_key = base64.urlsafe_b64encode(key)
         return Fernet(fernet_key)
-    except Exception as e:
+    except (ValueError, TypeError) as e:
         raise CryptoError(f"Fernet creation failed: {e}") from e
 
 
@@ -88,7 +93,7 @@ def encrypt_data(
         return ciphertext, salt
     except CryptoError:
         raise
-    except Exception as e:
+    except (ValueError, TypeError) as e:
         raise EncryptionError(f"Encryption failed: {e}") from e
 
 
@@ -106,19 +111,5 @@ def decrypt_data(ciphertext: bytes, master_password: str, salt: bytes) -> bytes:
         )
     except CryptoError:
         raise
-    except Exception as e:
+    except (ValueError, TypeError) as e:
         raise DecryptionError(f"Decryption failed: {e}") from e
-
-
-def verify_password(master_password: str, salt: bytes, ciphertext: bytes) -> bool:
-    """Verify master password without decrypting entire vault."""
-    try:
-        decrypt_data(ciphertext, master_password, salt)
-        return True
-    except DecryptionError:
-        return False
-
-
-def hash_for_storage(data: str) -> str:
-    """Create SHA-256 hash for integrity checking (not encryption)."""
-    return hashlib.sha256(data.encode("utf-8")).hexdigest()

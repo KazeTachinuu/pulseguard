@@ -25,8 +25,6 @@ from pulseguard.crypto import (
     derive_key,
     encrypt_data,
     generate_salt,
-    hash_for_storage,
-    verify_password,
 )
 
 
@@ -267,57 +265,6 @@ class TestDecryption:
         # Try to decrypt truncated data
         with pytest.raises(DecryptionError):
             decrypt_data(truncated, password, salt)
-
-
-class TestPasswordVerification:
-    """Tests for password verification utility."""
-
-    def test_verify_correct_password(self):
-        """Verify correct password returns True."""
-        data = b"Test data"
-        password = "correct_password"
-
-        ciphertext, salt = encrypt_data(data, password)
-
-        assert verify_password(password, salt, ciphertext) is True
-
-    def test_verify_wrong_password(self):
-        """Verify wrong password returns False."""
-        data = b"Test data"
-        password = "correct_password"
-
-        ciphertext, salt = encrypt_data(data, password)
-
-        assert verify_password("wrong_password", salt, ciphertext) is False
-
-
-class TestHashForStorage:
-    """Tests for SHA-256 hashing utility."""
-
-    def test_hash_consistency(self):
-        """Verify same input produces same hash."""
-        data = "test data"
-
-        hash1 = hash_for_storage(data)
-        hash2 = hash_for_storage(data)
-
-        assert hash1 == hash2, "Hash must be consistent"
-
-    def test_hash_different_inputs(self):
-        """Verify different inputs produce different hashes."""
-        hash1 = hash_for_storage("data1")
-        hash2 = hash_for_storage("data2")
-
-        assert hash1 != hash2, "Different inputs must produce different hashes"
-
-    def test_hash_format(self):
-        """Verify hash is hex-encoded string."""
-        data = "test"
-        hash_value = hash_for_storage(data)
-
-        # SHA-256 produces 64 hex characters
-        assert len(hash_value) == 64, "SHA-256 hash must be 64 hex characters"
-        assert all(c in "0123456789abcdef" for c in hash_value), "Hash must be hex"
 
 
 class TestSecurityProperties:
