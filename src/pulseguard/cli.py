@@ -123,10 +123,12 @@ def interactive_mode() -> None:
                 "Security health check",
                 "Exit",
             ],
-            style=questionary.Style([
-                ('highlighted', 'fg:cyan bold'),
-                ('pointer', 'fg:cyan bold'),
-            ]),
+            style=questionary.Style(
+                [
+                    ("highlighted", "fg:cyan bold"),
+                    ("pointer", "fg:cyan bold"),
+                ]
+            ),
         ).ask()
 
         if choice is None or choice == "Exit":
@@ -154,7 +156,13 @@ def interactive_mode() -> None:
 
                 url = ui.prompt("URL (optional)", "")
                 notes = ui.prompt("Notes (optional)", "")
-                entry = PasswordEntry(name=name, username=username, password=password, url=url, notes=notes)
+                entry = PasswordEntry(
+                    name=name,
+                    username=username,
+                    password=password,
+                    url=url,
+                    notes=notes,
+                )
                 vault.add(entry)
                 ui.success(f"Added entry '{name}'")
 
@@ -172,13 +180,17 @@ def interactive_mode() -> None:
             elif choice == "Edit entry":
                 entry = select_entry(vault, "Select entry to edit")
                 if entry:
-                    ui.info(f"Editing '{entry.name}' (press Enter to keep current value)")
+                    ui.info(
+                        f"Editing '{entry.name}' (press Enter to keep current value)"
+                    )
                     new_username = ui.prompt("Username", entry.username)
                     new_url = ui.prompt("URL", entry.url)
                     new_notes = ui.prompt("Notes", entry.notes)
 
                     if Confirm.ask("Change password?", default=False):
-                        new_password = prompt_for_password_generation(for_interactive_mode=True)
+                        new_password = prompt_for_password_generation(
+                            for_interactive_mode=True
+                        )
                         if new_password is None:
                             new_password = getpass("New password: ")
                     else:
@@ -207,7 +219,9 @@ def interactive_mode() -> None:
                 query = ui.prompt("Search query")
                 results = vault.search(query)
                 if results:
-                    ui.show_entries_table(results, title=f"Search results for '{query}'")
+                    ui.show_entries_table(
+                        results, title=f"Search results for '{query}'"
+                    )
                 else:
                     ui.info(f"No matches for '{query}'")
 
@@ -301,9 +315,9 @@ def display_vault_stats(vault: Vault) -> None:
     stats = get_vault_stats(vault)
     ui.console.print("\n[bold cyan]Vault Statistics[/bold cyan]")
     ui.console.print(f"  Total entries: {stats['total']}")
-    if stats['reused'] > 0:
+    if stats["reused"] > 0:
         ui.console.print(f"  [yellow]Reused passwords: {stats['reused']}[/yellow]")
-    if stats['duplicates'] > 0:
+    if stats["duplicates"] > 0:
         ui.console.print(f"  [yellow]Duplicate entries: {stats['duplicates']}[/yellow]")
 
 
@@ -332,7 +346,9 @@ def display_security_health_check(vault: Vault) -> None:
 
 @app.command("list", help="List all password entries")
 def list_entries(
-    search: Annotated[Optional[str], typer.Option("--search", "-s", help="Filter by name or username")] = None,
+    search: Annotated[
+        Optional[str], typer.Option("--search", "-s", help="Filter by name or username")
+    ] = None,
 ):
     """List all password entries."""
     vault = get_vault()
@@ -341,7 +357,8 @@ def list_entries(
     if search:
         search_lower = search.lower()
         entries = [
-            e for e in entries
+            e
+            for e in entries
             if search_lower in e.name.lower() or search_lower in e.username.lower()
         ]
 
@@ -355,12 +372,18 @@ def list_entries(
 def add_entry(
     name: Annotated[Optional[str], typer.Argument(help="Entry name")] = None,
     username: Annotated[Optional[str], typer.Argument(help="Username")] = None,
-    password: Annotated[Optional[str], typer.Argument(help="Password (or use --gen)")] = None,
+    password: Annotated[
+        Optional[str], typer.Argument(help="Password (or use --gen)")
+    ] = None,
     url: Annotated[str, typer.Option(help="Service URL")] = "",
     notes: Annotated[str, typer.Option(help="Additional notes")] = "",
     gen: Annotated[bool, typer.Option("--gen", help="Generate password")] = False,
-    length: Annotated[int, typer.Option(min=8, max=25, help="Generated password length")] = DEFAULT_LEN,
-    symbols: Annotated[bool, typer.Option(help="Include symbols in generation")] = False,
+    length: Annotated[
+        int, typer.Option(min=8, max=25, help="Generated password length")
+    ] = DEFAULT_LEN,
+    symbols: Annotated[
+        bool, typer.Option(help="Include symbols in generation")
+    ] = False,
 ):
     """Add a new password entry."""
     vault = get_vault()
@@ -382,7 +405,9 @@ def add_entry(
     elif not password:
         password = getpass("Password: ")
 
-    entry = PasswordEntry(name=name, username=username, password=password, url=url, notes=notes)
+    entry = PasswordEntry(
+        name=name, username=username, password=password, url=url, notes=notes
+    )
     vault.add(entry)
     ui.success(f"Added entry '{name}'")
 
@@ -390,7 +415,9 @@ def add_entry(
 @app.command("get", help="Get password details")
 def get_entry(
     name: Annotated[Optional[str], typer.Argument(help="Entry name")] = None,
-    show: Annotated[bool, typer.Option("--show", help="Show password in terminal")] = False,
+    show: Annotated[
+        bool, typer.Option("--show", help="Show password in terminal")
+    ] = False,
 ):
     """Get password details with interactive selection."""
     vault = get_vault()
@@ -459,7 +486,9 @@ def edit_entry(
 @app.command("delete", help="Delete an entry")
 def delete_entry(
     name: Annotated[Optional[str], typer.Argument(help="Entry name")] = None,
-    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation")] = False,
+    force: Annotated[
+        bool, typer.Option("--force", "-f", help="Skip confirmation")
+    ] = False,
 ):
     """Delete an entry with confirmation."""
     vault = get_vault()

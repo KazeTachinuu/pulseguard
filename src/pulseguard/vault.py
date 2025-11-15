@@ -259,7 +259,11 @@ def find_duplicates(vault: Vault) -> List[tuple[str, List[PasswordEntry]]]:
         groups[key].append(entry)
 
     # Return formatted string keys for display
-    return [(f"{user}@{url or 'None'}", entries_list) for (user, url), entries_list in groups.items() if len(entries_list) > 1]
+    return [
+        (f"{user}@{url or 'None'}", entries_list)
+        for (user, url), entries_list in groups.items()
+        if len(entries_list) > 1
+    ]
 
 
 def find_reused_passwords(vault: Vault) -> List[tuple[int, List[PasswordEntry]]]:
@@ -280,7 +284,11 @@ def find_reused_passwords(vault: Vault) -> List[tuple[int, List[PasswordEntry]]]
         password_usage[pwd_hash].append(entry)
 
     # Return only passwords used more than once (count, entries) without exposing password
-    return [(len(entries_list), entries_list) for entries_list in password_usage.values() if len(entries_list) > 1]
+    return [
+        (len(entries_list), entries_list)
+        for entries_list in password_usage.values()
+        if len(entries_list) > 1
+    ]
 
 
 def get_vault_stats(vault: Vault) -> dict:

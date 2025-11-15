@@ -81,7 +81,9 @@ def humanize_date(dt: Optional[datetime]) -> str:
         return f"{years}y ago"
 
 
-def show_entries_table(entries: List[PasswordEntry], title: str = "Password Vault") -> None:
+def show_entries_table(
+    entries: List[PasswordEntry], title: str = "Password Vault"
+) -> None:
     """Display entries in a beautiful table."""
     if not entries:
         info("No entries found")
@@ -150,7 +152,9 @@ def show_password_generated(password: str, copied: bool = False) -> None:
         console.print(panel)
 
 
-def select_entry(vault: "Vault", message: str = "Select entry") -> Optional[PasswordEntry]:
+def select_entry(
+    vault: "Vault", message: str = "Select entry"
+) -> Optional[PasswordEntry]:
     """
     Interactive entry selector with fuzzy search.
 
@@ -163,16 +167,20 @@ def select_entry(vault: "Vault", message: str = "Select entry") -> Optional[Pass
 
     sorted_entries = sorted(entries, key=lambda e: e.name.lower())
     choices = [f"{entry.name} ({entry.username})" for entry in sorted_entries]
-    name_map = {f"{entry.name} ({entry.username})": entry.name for entry in sorted_entries}
+    name_map = {
+        f"{entry.name} ({entry.username})": entry.name for entry in sorted_entries
+    }
 
     try:
         answer = questionary.autocomplete(
             message,
             choices=choices,
-            style=questionary.Style([
-                ('highlighted', 'fg:cyan bold'),
-                ('pointer', 'fg:cyan bold'),
-            ]),
+            style=questionary.Style(
+                [
+                    ("highlighted", "fg:cyan bold"),
+                    ("pointer", "fg:cyan bold"),
+                ]
+            ),
         ).ask()
 
         if answer is None:  # User cancelled
