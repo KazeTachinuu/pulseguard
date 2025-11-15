@@ -58,11 +58,6 @@ def add_password(
             )
             password = generate_password(opts)
             copied = copy_to_clipboard(password)
-            if copied:
-                print("Generated password copied to clipboard.")
-            else:
-                print("! Clipboard unavailable, showing the new password below:")
-                print(password)
 
         entry = PasswordEntry(
             name=name, username=username, password=password, url=url, notes=notes
@@ -71,7 +66,10 @@ def add_password(
         print(SUCCESS_ADDED.format(name=name))
         if gen:
             print(f"(length={len(password)}, max={MAX_LEN})")
-            if not copied:
+            if copied:
+                print("Generated password copied to clipboard.")
+            else:
+                print("! Clipboard unavailable, showing the new password below:")
                 print(f"Password: {password}")
     except VaultError as e:
         print(f"Error adding password: {e}")

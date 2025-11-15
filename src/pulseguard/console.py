@@ -75,6 +75,14 @@ class Console(cmd.Cmd):
                 elif tok == "--length" and nxt:
                     try:
                         length = int(nxt)
+                        if length <= 0:
+                            print(f"Error: Length must be positive, got {length}")
+                            return
+                        if length > 1000:
+                            print(
+                                f"Error: Length too large, maximum is 1000, got {length}"
+                            )
+                            return
                     except ValueError:
                         pass
                     i += 2
@@ -138,6 +146,12 @@ class Console(cmd.Cmd):
                 print(ERROR_MUTUALLY_EXCLUSIVE_GEN)
                 return
 
+            if gen and not (lower or upper or digits or symbols):
+                print(
+                    "Error: At least one character class must be enabled for password generation"
+                )
+                return
+
             handler_args.extend(
                 [
                     name,
@@ -173,6 +187,14 @@ class Console(cmd.Cmd):
                 if tok == "--length" and nxt:
                     try:
                         length = int(nxt)
+                        if length <= 0:
+                            print(f"Error: Length must be positive, got {length}")
+                            return
+                        if length > 1000:
+                            print(
+                                f"Error: Length too large, maximum is 1000, got {length}"
+                            )
+                            return
                     except ValueError:
                         pass
                     i += 2
@@ -190,6 +212,13 @@ class Console(cmd.Cmd):
                     i += 2
                 else:
                     i += 1
+
+            if not (lower or upper or digits or symbols):
+                print(
+                    "Error: At least one character class must be enabled for password generation"
+                )
+                return
+
             handler_args.extend([length, lower, upper, digits, symbols])
 
         else:

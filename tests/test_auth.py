@@ -1,6 +1,6 @@
-"""Tests unitaires pour le module d auth
+"""Tests unitaires pour le module d'auth
 
-Ceci sera tster
+Ceci sera tester
 - Saisie du master pass
 - creation & ajout
 - Déverrouillage

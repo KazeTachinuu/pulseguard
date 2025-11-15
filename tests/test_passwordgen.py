@@ -3,7 +3,7 @@
 Tests all generation handlers including:
 - checks charset construction
 - ensures ValueError on empty charset
-- validates password length boundarie
+- validates password length boundaries
 - ensures mixed-char passwords of correct length
 - tests specific character sets
 - Clipboard tests
@@ -119,7 +119,7 @@ class TestClipboard:
                 self.returncode = 0
                 self.cmd = cmd
 
-            def communicate(self, input=None):
+            def communicate(self, input=None, timeout=None):
                 self.returncode = 0
 
         monkeypatch.setattr(pg.subprocess, "Popen", PopenOK, raising=True)

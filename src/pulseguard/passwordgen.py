@@ -15,6 +15,7 @@ except Exception:
     pyperclip = None
 
 
+SYMBOLS = "!@#$%^&*()-_=+[]{};:,.?/"
 MAX_LEN = 25
 DEFAULT_LEN = 16
 MIN_LEN = 8
@@ -39,7 +40,7 @@ def build_charset(opts: GenOptions) -> str:
         charset += string.digits
     if opts.symbols:
         # Symbols available for rand gen
-        charset += "!@#$%^&*()-_=+[]{};:,.?/"
+        charset += SYMBOLS
 
     if not charset:
         raise ValueError("No character classes selected (lower/upper/digits/symbols).")
@@ -66,7 +67,7 @@ def generate_password(opts: GenOptions) -> str:
     if opts.digits:
         required.append(secrets.choice(string.digits))
     if opts.symbols:
-        required.append(secrets.choice("!@#$%^&*()-_=+[]{};:,.?/"))
+        required.append(secrets.choice(SYMBOLS))
 
     while len(required) < opts.length:
         required.append(secrets.choice(charset))
@@ -93,7 +94,7 @@ def copy_to_clipboard(text: str) -> bool:
     try:
         if sys.platform == "darwin":
             p = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE)
-            p.communicate(input=text.encode("utf-8"))
+            p.communicate(input=text.encode("utf-8"), timeout=5)
             return p.returncode == 0
         elif sys.platform.startswith("linux"):
             # Requires xclip or xsel installed
@@ -103,15 +104,23 @@ def copy_to_clipboard(text: str) -> bool:
             ):
                 try:
                     p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-                    p.communicate(input=text.encode("utf-8"))
+                    p.communicate(input=text.encode("utf-8"), timeout=5)
                     if p.returncode == 0:
                         return True
                 except FileNotFoundError:
                     continue
+                except subprocess.TimeoutExpired:
+                    p.kill()
+                    p.wait()
+                    continue
         elif sys.platform.startswith("win"):
-            p = subprocess.Popen(["clip"], stdin=subprocess.PIPE, shell=True)
-            p.communicate(input=text.encode("utf-8"))
+            p = subprocess.Popen(["clip"], stdin=subprocess.PIPE)
+            p.communicate(input=text.encode("utf-8"), timeout=5)
             return p.returncode == 0
+    except subprocess.TimeoutExpired:
+        if "p" in locals():
+            p.kill()
+            p.wait()
     except Exception:
         pass
     return False

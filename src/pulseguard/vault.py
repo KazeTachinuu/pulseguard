@@ -147,8 +147,11 @@ class Vault:
 
         if self._is_encrypted:
             try:
-                # Type assertion: master_password and _salt are non-None when encrypted
-                assert self.master_password is not None, "Master password required"
+                # Defensive check: ensure master_password is set for encrypted vaults
+                if self.master_password is None:
+                    raise VaultEncryptionError(
+                        "Master password required for encrypted vault"
+                    )
                 ciphertext, salt = encrypt_data(
                     json_content.encode("utf-8"), self.master_password, self._salt
                 )

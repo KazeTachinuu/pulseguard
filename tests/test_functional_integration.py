@@ -20,7 +20,7 @@ from pulseguard.models import PasswordEntry
 from pulseguard.vault import Vault, VaultDecryptionError
 
 
-def run_cli(args, vault_path, env=None, input_data=None):  # <-- AJOUTER input_data
+def run_cli(args, vault_path, env=None, input_data=None):
     """Helper to run CLI commands."""
     cmd = [sys.executable, "-m", "pulseguard"] + args
     if env is None:
@@ -35,7 +35,7 @@ def run_cli(args, vault_path, env=None, input_data=None):  # <-- AJOUTER input_d
         capture_output=True,
         text=True,
         env=env,
-        input=input_data,  # <-- UTILISER input_data
+        input=input_data,
     )
 
 

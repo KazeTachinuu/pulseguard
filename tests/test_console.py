@@ -476,7 +476,7 @@ class TestConsoleIntegration:
 class TestConsoleAddGenParsing:
     @patch("pulseguard.operations.generate_password", return_value="CONSOLEGEN")
     @patch("pulseguard.operations.copy_to_clipboard", return_value=False)
-    def test_add_with_generator_and_flags(self, mock_gen, mock_clip, tmp_path, capsys):
+    def test_add_with_generator_and_flags(self, mock_clip, mock_gen, tmp_path, capsys):
         c = _console(tmp_path)
         c.default(
             "add Gmail user --gen --length 12 --lower false --upper true --digits false --symbols true --url https://g --notes NoteZ"

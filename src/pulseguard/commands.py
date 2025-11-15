@@ -15,6 +15,16 @@ from .operations import (
 )
 
 
+def str_to_bool(value: str) -> bool:
+    """Convert string to boolean for argparse."""
+    if value.lower() in ("true", "t", "yes", "y", "1"):
+        return True
+    elif value.lower() in ("false", "f", "no", "n", "0"):
+        return False
+    else:
+        raise ValueError(f"Boolean value expected, got: {value}")
+
+
 @dataclass
 class Command:
     """Complete command specification."""
@@ -68,25 +78,25 @@ COMMANDS = [
             },
             {
                 "name": "--lower",
-                "type": bool,
+                "type": str_to_bool,
                 "default": True,
                 "help": "Include lowercase",
             },
             {
                 "name": "--upper",
-                "type": bool,
+                "type": str_to_bool,
                 "default": True,
                 "help": "Include uppercase",
             },
             {
                 "name": "--digits",
-                "type": bool,
+                "type": str_to_bool,
                 "default": True,
                 "help": "Include digits",
             },
             {
                 "name": "--symbols",
-                "type": bool,
+                "type": str_to_bool,
                 "default": False,
                 "help": "Include symbols",
             },
@@ -145,25 +155,25 @@ COMMANDS = [
             {"name": "--length", "type": int, "default": 16, "help": "Length (<=25)"},
             {
                 "name": "--lower",
-                "type": bool,
+                "type": str_to_bool,
                 "default": True,
                 "help": "Include lowercase",
             },
             {
                 "name": "--upper",
-                "type": bool,
+                "type": str_to_bool,
                 "default": True,
                 "help": "Include uppercase",
             },
             {
                 "name": "--digits",
-                "type": bool,
+                "type": str_to_bool,
                 "default": True,
                 "help": "Include digits",
             },
             {
                 "name": "--symbols",
-                "type": bool,
+                "type": str_to_bool,
                 "default": False,
                 "help": "Include symbols",
             },

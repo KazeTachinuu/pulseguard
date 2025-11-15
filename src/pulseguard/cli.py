@@ -71,19 +71,19 @@ def handle_cli_command(vault: Vault, args: argparse.Namespace) -> None:
     cmd_args = get_command_args(args.command)
     handler_args = [vault]
 
+    if args.command == "add":
+        has_password = bool(getattr(args, "password", ""))
+        wants_gen = bool(getattr(args, "gen", False))
+
+        if not has_password and not wants_gen:
+            print(ERROR_USAGE_ADD)
+            sys.exit(1)
+
+        if has_password and wants_gen:
+            print(ERROR_MUTUALLY_EXCLUSIVE_GEN)
+            sys.exit(1)
+
     for arg in cmd_args:
-        if args.command == "add":
-            has_password = bool(getattr(args, "password", ""))
-            wants_gen = bool(getattr(args, "gen", False))
-
-            if not has_password and not wants_gen:
-                print(ERROR_USAGE_ADD)
-                sys.exit(1)
-
-            if has_password and wants_gen:
-                print(ERROR_MUTUALLY_EXCLUSIVE_GEN)
-                sys.exit(1)
-
         arg_name = arg["name"].lstrip("-")
         if hasattr(args, arg_name):
             handler_args.append(getattr(args, arg_name))
