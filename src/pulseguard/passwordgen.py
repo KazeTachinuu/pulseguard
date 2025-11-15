@@ -90,48 +90,71 @@ def generate_password(opts: GenOptions) -> str:
 
 
 def copy_to_clipboard(text: str) -> bool:
-    """Copy text to clipboard. Returns True on success."""
-    # Preferred: pyperclip
+    """
+    Copy text to clipboard. Returns True on success, False on failure.
+
+    Tries multiple methods in order:
+    1. pyperclip library (cross-platform)
+    2. Platform-specific command-line tools via subprocess
+
+    Supports: macOS, Windows, Linux (X11 and Wayland), BSD
+    """
+    # Preferred: pyperclip (cross-platform library)
     if pyperclip:
         try:
             pyperclip.copy(text)
             return True
         except Exception:
+            # pyperclip failed, try subprocess fallback
             pass
 
-    # in case it failed give more info and add fallback
+    # Fallback: platform-specific command-line tools
     p = None
     try:
         if sys.platform == "darwin":
+            # macOS
             p = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE)
             p.communicate(input=text.encode("utf-8"), timeout=5)
             return p.returncode == 0
-        elif sys.platform.startswith("linux"):
-            # Try Wayland (wl-copy), then X11 (xclip, xsel) clipboard tools
+
+        elif sys.platform.startswith("linux") or sys.platform.startswith("freebsd"):
+            # Linux/BSD: Try Wayland (wl-copy), then X11 (xclip, xsel) clipboard tools
             for cmd in (
                 ["wl-copy"],  # Wayland
                 ["xclip", "-selection", "clipboard"],  # X11
                 ["xsel", "--clipboard", "--input"],  # X11
             ):
                 try:
-                    p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+                    p = subprocess.Popen(
+                        cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL
+                    )
                     p.communicate(input=text.encode("utf-8"), timeout=5)
                     if p.returncode == 0:
                         return True
                 except FileNotFoundError:
+                    # Tool not installed, try next one
                     continue
                 except subprocess.TimeoutExpired:
-                    p.kill()
-                    p.wait()
+                    if p is not None:
+                        p.kill()
+                        p.wait()
                     continue
+
         elif sys.platform.startswith("win"):
-            p = subprocess.Popen(["clip"], stdin=subprocess.PIPE)
+            # Windows
+            p = subprocess.Popen(
+                ["clip"], stdin=subprocess.PIPE, stderr=subprocess.DEVNULL
+            )
             p.communicate(input=text.encode("utf-8"), timeout=5)
             return p.returncode == 0
+
     except subprocess.TimeoutExpired:
+        # Cleanup timed-out process
         if p is not None:
             p.kill()
             p.wait()
     except Exception:
+        # Catch any other unexpected errors (permission issues, etc.)
         pass
+
     return False

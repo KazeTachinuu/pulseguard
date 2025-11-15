@@ -5,7 +5,7 @@ from enum import Enum
 from getpass import getpass
 from typing import Optional
 
-import inquirer
+import inquirer  # type: ignore[import-untyped]
 import questionary
 import typer
 from rich.prompt import Confirm
@@ -307,6 +307,8 @@ def interactive_mode() -> None:
                 if entry:
                     if copy_to_clipboard(entry.password):
                         ui.success("Password copied to clipboard")
+                    else:
+                        ui.warning("Clipboard unavailable")
                     show_entry_with_quick_actions(vault, entry)
 
             elif choice and choice.startswith("Recently used"):
@@ -314,6 +316,8 @@ def interactive_mode() -> None:
                 if entry:
                     if copy_to_clipboard(entry.password):
                         ui.success("Password copied to clipboard")
+                    else:
+                        ui.warning("Clipboard unavailable")
                     show_entry_with_quick_actions(vault, entry)
 
             elif choice == MainMenu.BROWSE_CATEGORY.value:
@@ -321,6 +325,8 @@ def interactive_mode() -> None:
                 if entry:
                     if copy_to_clipboard(entry.password):
                         ui.success("Password copied to clipboard")
+                    else:
+                        ui.warning("Clipboard unavailable")
                     show_entry_with_quick_actions(vault, entry)
 
             elif choice == MainMenu.FIND_ENTRY.value:
@@ -328,6 +334,8 @@ def interactive_mode() -> None:
                 if entry:
                     if copy_to_clipboard(entry.password):
                         ui.success("Password copied to clipboard")
+                    else:
+                        ui.warning("Clipboard unavailable")
                     show_entry_with_quick_actions(vault, entry)
 
             elif choice == MainMenu.ADD_ENTRY.value:

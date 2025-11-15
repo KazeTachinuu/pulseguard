@@ -129,12 +129,13 @@ class TestClipboard:
         monkeypatch.setattr(pg.sys, "platform", "linux", raising=True)
 
         class PopenOK:
-            def __init__(self, cmd, stdin=None):
+            def __init__(self, cmd, stdin=None, stderr=None):
                 self.returncode = 0
                 self.cmd = cmd
 
             def communicate(self, input=None, timeout=None):
                 self.returncode = 0
+                return (b"", b"")
 
         monkeypatch.setattr(pg.subprocess, "Popen", PopenOK, raising=True)
         assert copy_to_clipboard("hello") is True
@@ -147,7 +148,7 @@ class TestClipboard:
         monkeypatch.setattr(pg.sys, "platform", "linux", raising=True)
 
         class PopenMissing:
-            def __init__(self, cmd, stdin=None):
+            def __init__(self, cmd, stdin=None, stderr=None):
                 raise FileNotFoundError
 
         monkeypatch.setattr(pg.subprocess, "Popen", PopenMissing, raising=True)

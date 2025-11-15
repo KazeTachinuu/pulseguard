@@ -181,6 +181,8 @@ def core_get_entry(vault: Vault) -> None:
     copied = copy_to_clipboard(entry.password)
     if copied:
         ui.success("Password copied to clipboard")
+    else:
+        ui.warning("Clipboard unavailable")
 
     show_entry_with_quick_actions(vault, entry)
 

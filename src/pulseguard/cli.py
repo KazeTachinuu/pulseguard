@@ -107,6 +107,8 @@ def search_entries():
 
         if copy_to_clipboard(entry.password):
             ui.success("Password copied to clipboard")
+        else:
+            ui.warning("Clipboard unavailable")
         from .cli_operations import show_entry_with_quick_actions
 
         show_entry_with_quick_actions(vault, entry)
