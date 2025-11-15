@@ -1,13 +1,4 @@
-"""Comprehensive tests for passwordgen module.
-
-Tests all generation handlers including:
-- checks charset construction
-- ensures ValueError on empty charset
-- validates password length boundaries
-- ensures mixed-char passwords of correct length
-- tests specific character sets
-- Clipboard tests
-"""
+"""Tests for encrypted vault operations."""
 
 import re
 
@@ -49,13 +40,11 @@ class TestCharsetAndLimits:
             )
 
     def test_enforce_limits_min(self):
-        """Test that passwords with length < 1 raise an error."""
         opts = GenOptions(length=0, lower=True)
         with pytest.raises(ValueError, match="at least 1"):
             enforce_limits(0, opts)
 
     def test_enforce_limits_allows_any_positive(self):
-        """Test that any positive length is allowed when >= required chars."""
         opts_one = GenOptions(
             length=1, lower=True, upper=False, digits=False, symbols=False
         )
@@ -68,15 +57,12 @@ class TestCharsetAndLimits:
         assert enforce_limits(100, opts_long) == 100
 
     def test_enforce_limits_requires_min_for_all_classes(self):
-        """Test that length must be >= number of enabled character classes."""
-        # All 4 classes enabled, need at least 4 chars
         opts_all = GenOptions(
             length=3, lower=True, upper=True, digits=True, symbols=True
         )
         with pytest.raises(ValueError, match="at least 4"):
             enforce_limits(3, opts_all)
 
-        # Should work with length=4
         opts_all_ok = GenOptions(
             length=4, lower=True, upper=True, digits=True, symbols=True
         )

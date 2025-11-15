@@ -249,7 +249,7 @@ def find_duplicates(vault: Vault) -> List[tuple[str, List[PasswordEntry]]]:
     Returns list of tuples: (key, [entries]) where key is "username@url"
     """
     entries = vault.get_all()
-    groups = {}
+    groups: dict[tuple[str, Optional[str]], List[PasswordEntry]] = {}
 
     for entry in entries:
         # Use tuple as key to avoid collisions (e.g., url="no-url" vs url=None)
@@ -274,7 +274,7 @@ def find_reused_passwords(vault: Vault) -> List[tuple[int, List[PasswordEntry]]]
     Note: Actual passwords are not returned to prevent accidental exposure.
     """
     entries = vault.get_all()
-    password_usage = {}
+    password_usage: dict[str, List[PasswordEntry]] = {}
 
     for entry in entries:
         # Hash password to avoid storing plaintext as dict keys

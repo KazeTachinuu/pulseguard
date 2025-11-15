@@ -10,7 +10,12 @@ from cryptography.fernet import Fernet, InvalidToken
 try:
     from argon2.exceptions import HashingError
 except ImportError:
-    HashingError = type("HashingError", (Exception,), {})
+
+    class HashingError(Exception):  # type: ignore[no-redef]
+        """Fallback HashingError when argon2 is not installed."""
+
+        pass
+
 
 # Argon2id parameters (OWASP recommendations for password storage)
 ARGON2_TIME_COST = 2  # Number of iterations
