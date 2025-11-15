@@ -4,33 +4,42 @@ stages:
   - lint
   - test
 
-variables:
-  UV_INSTALL_DIR: "$CI_PROJECT_DIR/.uv"
-
+# Cache based on dependencies file for better invalidation
 cache:
-  key: ${CI_COMMIT_REF_SLUG}
+  key:
+    files:
+      - pyproject.toml
   paths:
     - .venv/
-    - .uv/
 
 before_script:
   - python -m pip install --upgrade pip
   - pip install uv
   - uv venv
+  - source .venv/bin/activate
   - uv pip install -e .[dev,test]
 
-lint:
+# Run all lint checks in parallel - don't let one block the others
+lint:black:
   stage: lint
   script:
     - uv run black --check src/ tests/
+
+lint:ruff:
+  stage: lint
+  script:
     - uv run ruff check src/ tests/
+
+lint:mypy:
+  stage: lint
+  script:
     - uv run mypy src/
-  allow_failure: false
 
 test:
   stage: test
   script:
-    - uv run pytest --cov=pulseguard --cov-report=xml --cov-report=term --cov-report=html --cov-fail-under=70 --junitxml=junit.xml
+    # Fixed: using src/pulseguard to match pyproject.toml coverage source
+    - uv run pytest --cov=src/pulseguard --cov-report=xml --cov-report=term --cov-report=html --cov-fail-under=70 --junitxml=junit.xml
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
     when: always

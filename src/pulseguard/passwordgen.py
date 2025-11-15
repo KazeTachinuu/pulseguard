@@ -47,16 +47,25 @@ def build_charset(opts: GenOptions) -> str:
     return charset
 
 
-def enforce_limits(length: int) -> int:
-    if length < MIN_LEN:
-        raise ValueError(f"Password length must be >= {MIN_LEN}.")
-    if length > MAX_LEN:
-        raise ValueError(f"Password length must be <= {MAX_LEN}.")
+def enforce_limits(length: int, opts: GenOptions) -> int:
+    """Validate password length against enabled character classes."""
+    if length < 1:
+        raise ValueError("Password length must be at least 1.")
+
+    # Count required characters (one per enabled class)
+    required_chars = sum([opts.lower, opts.upper, opts.digits, opts.symbols])
+
+    if length < required_chars:
+        raise ValueError(
+            f"Password length ({length}) must be at least {required_chars} "
+            f"to include one character from each enabled character class."
+        )
+
     return length
 
 
 def generate_password(opts: GenOptions) -> str:
-    enforce_limits(opts.length)
+    enforce_limits(opts.length, opts)
     charset = build_charset(opts)
 
     required = []

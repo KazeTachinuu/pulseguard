@@ -1,26 +1,51 @@
 #!/bin/bash
-# Pre-commit hook: Auto-format code with black before committing
+# Pre-commit hook: Auto-format and validate code before committing
 
-echo "Running pre-commit checks..."
+set -e  # Exit on any error
+
+echo "🔍 Running pre-commit checks..."
 
 # Get list of Python files being committed
-FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$')
+FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
 
 if [ -z "$FILES" ]; then
-    echo "No Python files to check."
+    echo "✓ No Python files to check."
     exit 0
 fi
 
-# Run black on staged Python files
-echo "Auto-formatting with black..."
-uv run black $FILES
+echo "📝 Files to check:"
+echo "$FILES" | sed 's/^/  - /'
+echo ""
 
-# Run ruff to check for issues
-echo "Checking code quality with ruff..."
-uv run ruff check --fix $FILES
+# 1. Auto-format with black
+echo "🎨 Auto-formatting with black..."
+if ! uv run black "$FILES"; then
+    echo "❌ Black formatting failed!"
+    exit 1
+fi
+
+# 2. Auto-fix code quality issues with ruff
+echo "🔧 Fixing code quality issues with ruff..."
+if ! uv run ruff check --fix "$FILES"; then
+    echo "❌ Ruff check failed - some issues couldn't be auto-fixed!"
+    echo "💡 Hint: Run 'uv run ruff check $FILES' to see details"
+    exit 1
+fi
+
+# 3. Run mypy on source files only (not tests)
+SRC_FILES=$(echo "$FILES" | grep '^src/' || true)
+if [ -n "$SRC_FILES" ]; then
+    echo "🔎 Type checking with mypy..."
+    if ! uv run mypy "$SRC_FILES"; then
+        echo "❌ Type checking failed!"
+        echo "💡 Hint: Fix type errors or use '# type: ignore' if necessary"
+        exit 1
+    fi
+fi
 
 # Re-stage the formatted files
-git add $FILES
+git add "$FILES"
 
-echo "✓ Pre-commit checks passed!"
+echo ""
+echo "✅ All pre-commit checks passed!"
 exit 0

@@ -15,8 +15,6 @@ import pytest
 
 from pulseguard.passwordgen import (
     DEFAULT_LEN,
-    MAX_LEN,
-    MIN_LEN,
     GenOptions,
     build_charset,
     copy_to_clipboard,
@@ -51,15 +49,45 @@ class TestCharsetAndLimits:
             )
 
     def test_enforce_limits_min(self):
-        with pytest.raises(ValueError):
-            enforce_limits(MIN_LEN - 1)
+        """Test that passwords with length < 1 raise an error."""
+        opts = GenOptions(length=0, lower=True)
+        with pytest.raises(ValueError, match="at least 1"):
+            enforce_limits(0, opts)
 
-    def test_enforce_limits_max(self):
-        with pytest.raises(ValueError):
-            enforce_limits(MAX_LEN + 1)
+    def test_enforce_limits_allows_any_positive(self):
+        """Test that any positive length is allowed when >= required chars."""
+        opts_one = GenOptions(
+            length=1, lower=True, upper=False, digits=False, symbols=False
+        )
+        assert enforce_limits(1, opts_one) == 1
 
-    def test_enforce_limits_ok(self):
-        assert enforce_limits(DEFAULT_LEN) == DEFAULT_LEN
+        opts_default = GenOptions(length=DEFAULT_LEN)
+        assert enforce_limits(DEFAULT_LEN, opts_default) == DEFAULT_LEN
+
+        opts_long = GenOptions(length=100)
+        assert enforce_limits(100, opts_long) == 100
+
+    def test_enforce_limits_requires_min_for_all_classes(self):
+        """Test that length must be >= number of enabled character classes."""
+        # All 4 classes enabled, need at least 4 chars
+        opts_all = GenOptions(
+            length=3, lower=True, upper=True, digits=True, symbols=True
+        )
+        with pytest.raises(ValueError, match="at least 4"):
+            enforce_limits(3, opts_all)
+
+        # Should work with length=4
+        opts_all_ok = GenOptions(
+            length=4, lower=True, upper=True, digits=True, symbols=True
+        )
+        assert enforce_limits(4, opts_all_ok) == 4
+
+        # Only 2 classes enabled, need at least 2 chars
+        opts_two = GenOptions(
+            length=1, lower=True, upper=True, digits=False, symbols=False
+        )
+        with pytest.raises(ValueError, match="at least 2"):
+            enforce_limits(1, opts_two)
 
 
 class TestGeneratePassword:

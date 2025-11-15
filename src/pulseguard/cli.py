@@ -28,6 +28,7 @@ app = typer.Typer(
     help="Secure password manager with modern CLI",
     add_completion=True,
     no_args_is_help=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
 )
 
 
@@ -102,6 +103,9 @@ def initialize_vault() -> Vault:
                 ui.error("Vault unlock cancelled")
                 raise typer.Exit(1)
 
+        # Should never reach here, but mypy needs this
+        raise typer.Exit(1)
+
 
 def interactive_mode() -> None:
     """Interactive menu for vault operations."""
@@ -144,102 +148,27 @@ def interactive_mode() -> None:
                     ui.info("No entries found")
 
             elif choice == "Add new entry":
-                name = ui.prompt("Entry name")
-                username = ui.prompt("Username")
-
-                if Confirm.ask("Generate password?", default=True):
-                    password = prompt_for_password_generation(for_interactive_mode=True)
-                    if not password:
-                        continue
-                else:
-                    password = getpass("Password: ")
-
-                url = ui.prompt("URL (optional)", "")
-                notes = ui.prompt("Notes (optional)", "")
-                entry = PasswordEntry(
-                    name=name,
-                    username=username,
-                    password=password,
-                    url=url,
-                    notes=notes,
-                )
-                vault.add(entry)
-                ui.success(f"Added entry '{name}'")
+                core_add_entry(vault)
 
             elif choice == "Get/view entry":
-                entry = select_entry(vault, "Select entry to view")
-                if entry:
-                    if Confirm.ask("Show password in terminal?", default=False):
-                        ui.show_entry_panel(entry, show_password=True)
-                    else:
-                        copied = copy_to_clipboard(entry.password)
-                        if copied:
-                            ui.success("Password copied to clipboard")
-                        ui.show_entry_panel(entry, show_password=False)
+                show = Confirm.ask("Show password in terminal?", default=False)
+                core_get_entry(vault, show=show)
 
             elif choice == "Edit entry":
-                entry = select_entry(vault, "Select entry to edit")
-                if entry:
-                    ui.info(
-                        f"Editing '{entry.name}' (press Enter to keep current value)"
-                    )
-                    new_username = ui.prompt("Username", entry.username)
-                    new_url = ui.prompt("URL", entry.url)
-                    new_notes = ui.prompt("Notes", entry.notes)
-
-                    if Confirm.ask("Change password?", default=False):
-                        new_password = prompt_for_password_generation(
-                            for_interactive_mode=True
-                        )
-                        if new_password is None:
-                            new_password = getpass("New password: ")
-                    else:
-                        new_password = entry.password
-
-                    updated_entry = PasswordEntry(
-                        name=entry.name,
-                        username=new_username,
-                        password=new_password,
-                        url=new_url,
-                        notes=new_notes,
-                    )
-                    vault.add(updated_entry)
-                    ui.success(f"Updated entry '{entry.name}'")
+                core_edit_entry(vault)
 
             elif choice == "Delete entry":
-                entry = select_entry(vault, "Select entry to delete")
-                if entry:
-                    if Confirm.ask(f"Delete '{entry.name}'?", default=False):
-                        vault.remove(entry.name)
-                        ui.success(f"Deleted entry '{entry.name}'")
-                    else:
-                        ui.info("Cancelled")
+                core_delete_entry(vault)
 
             elif choice == "Search entries":
                 query = ui.prompt("Search query")
-                results = vault.search(query)
-                if results:
-                    ui.show_entries_table(
-                        results, title=f"Search results for '{query}'"
-                    )
-                else:
-                    ui.info(f"No matches for '{query}'")
+                core_search_entries(vault, query)
 
             elif choice == "Generate password":
-                length_str = ui.prompt("Password length", str(DEFAULT_LEN))
-                try:
-                    length = int(length_str)
-                    if not (8 <= length <= 25):
-                        ui.error("Length must be between 8 and 25")
-                        continue
-                except ValueError:
-                    ui.error("Invalid number")
+                password = prompt_and_generate_password()
+                if not password:
+                    ui.info("Cancelled")
                     continue
-                symbols = Confirm.ask("Include symbols?", default=False)
-                opts = GenOptions(length=length, symbols=symbols)
-                password = generate_password(opts)
-                copied = copy_to_clipboard(password)
-                ui.show_password_generated(password, copied)
 
             elif choice == "Vault statistics":
                 display_vault_stats(vault)
@@ -275,35 +204,77 @@ def prompt_unlock_vault() -> str:
     return getpass("Master password: ")
 
 
-def prompt_for_password_generation(for_interactive_mode: bool = False) -> Optional[str]:
+def prompt_and_generate_password() -> Optional[str]:
     """
-    Prompt user to generate a password interactively.
+    Prompt user for password generation options and generate password.
 
-    Args:
-        for_interactive_mode: If True, uses continue for errors; if False, raises typer.Exit
+    Note: Caller should ask if user wants to generate password before calling this.
 
     Returns:
-        Generated password string, or None if user cancels
+        Generated password string, or None if user cancels/error
     """
-    if not Confirm.ask("Generate new password?", default=True):
-        return None
+    ui.console.print("\n[cyan]Password Generation Options[/cyan]")
 
+    # Prompt for length
     length_str = ui.prompt("Password length", str(DEFAULT_LEN))
     try:
         length = int(length_str)
-        if not (8 <= length <= 25):
-            ui.error("Length must be between 8 and 25")
-            if for_interactive_mode:
-                return None
-            raise typer.Exit(1)
+        if length < 1:
+            ui.error("Length must be at least 1")
+            return None
+        if length > 256:
+            ui.warning("Very long password! (>256 characters)")
     except ValueError:
         ui.error("Invalid number")
-        if for_interactive_mode:
-            return None
-        raise typer.Exit(1)
+        return None
 
-    symbols = Confirm.ask("Include symbols?", default=False)
-    opts = GenOptions(length=length, symbols=symbols)
+    # Use checkboxes for character type options
+    options = questionary.checkbox(
+        "Select character types to include:",
+        choices=[
+            questionary.Choice("Lowercase letters (a-z)", checked=True),
+            questionary.Choice("Uppercase letters (A-Z)", checked=True),
+            questionary.Choice("Numbers (0-9)", checked=True),
+            questionary.Choice("Special characters (!@#$%^&*)", checked=False),
+        ],
+        style=questionary.Style(
+            [
+                ("highlighted", "fg:cyan bold"),
+                ("pointer", "fg:cyan bold"),
+            ]
+        ),
+    ).ask()
+
+    if options is None:  # User cancelled
+        return None
+
+    # Parse selected options
+    lower = "Lowercase letters (a-z)" in options
+    upper = "Uppercase letters (A-Z)" in options
+    digits = "Numbers (0-9)" in options
+    symbols = "Special characters (!@#$%^&*)" in options
+
+    # Validate at least one option selected
+    if not (lower or upper or digits or symbols):
+        ui.error("At least one character type must be selected")
+        return None
+
+    # Validate length against number of enabled character classes
+    required_chars = sum([lower, upper, digits, symbols])
+    if length < required_chars:
+        ui.error(
+            f"Password length ({length}) must be at least {required_chars} "
+            f"to include one character from each enabled character class"
+        )
+        return None
+
+    opts = GenOptions(
+        length=length,
+        lower=lower,
+        upper=upper,
+        digits=digits,
+        symbols=symbols,
+    )
     password = generate_password(opts)
     copied = copy_to_clipboard(password)
     ui.show_password_generated(password, copied)
@@ -344,6 +315,166 @@ def display_security_health_check(vault: Vault) -> None:
         ui.success("No duplicate entries found")
 
 
+# ============================================================================
+# Core operation functions - shared between CLI and interactive modes
+# ============================================================================
+
+
+def core_add_entry(
+    vault: Vault,
+    name: Optional[str] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+    url: str = "",
+    notes: str = "",
+    gen: bool = False,
+    length: int = DEFAULT_LEN,
+    lower: bool = True,
+    upper: bool = True,
+    digits: bool = True,
+    symbols: bool = False,
+) -> None:
+    """Core logic for adding an entry - used by both CLI and interactive modes."""
+    # Prompt for missing required fields
+    if not name:
+        name = ui.prompt("Entry name")
+    if not username:
+        username = ui.prompt("Username")
+
+    # Handle password generation or prompt
+    if gen:
+        opts = GenOptions(
+            length=length,
+            lower=lower,
+            upper=upper,
+            digits=digits,
+            symbols=symbols,
+        )
+        password = generate_password(opts)
+        copied = copy_to_clipboard(password)
+        ui.show_password_generated(password, copied)
+    elif not password:
+        # Ask if user wants to generate (only when not specified)
+        if Confirm.ask("Generate password?", default=True):
+            password = prompt_and_generate_password()
+            if not password:
+                return  # User cancelled or error
+        else:
+            password = getpass("Password: ")
+
+    entry = PasswordEntry(
+        name=name, username=username, password=password, url=url, notes=notes
+    )
+    vault.add(entry)
+    ui.success(f"Added entry '{name}'")
+
+
+def core_get_entry(
+    vault: Vault,
+    name: Optional[str] = None,
+    show: bool = False,
+) -> None:
+    """Core logic for getting/viewing an entry - used by both CLI and interactive modes."""
+    # Get entry by name or interactive selection
+    if name:
+        entry = vault.get(name)
+        if not entry:
+            ui.error(f"Entry '{name}' not found")
+            return
+    else:
+        entry = select_entry(vault, "Select entry to view")
+        if not entry:
+            return
+
+    # Copy to clipboard unless showing
+    if not show:
+        copied = copy_to_clipboard(entry.password)
+        if copied:
+            ui.success("Password copied to clipboard")
+
+    ui.show_entry_panel(entry, show_password=show)
+
+
+def core_edit_entry(
+    vault: Vault,
+    name: Optional[str] = None,
+) -> None:
+    """Core logic for editing an entry - used by both CLI and interactive modes."""
+    # Get entry by name or interactive selection
+    if name:
+        entry = vault.get(name)
+        if not entry:
+            ui.error(f"Entry '{name}' not found")
+            return
+    else:
+        entry = select_entry(vault, "Select entry to edit")
+        if not entry:
+            return
+
+    ui.info(f"Editing '{entry.name}' (press Enter to keep current value)")
+
+    new_username = ui.prompt("Username", entry.username)
+    new_url = ui.prompt("URL", entry.url)
+    new_notes = ui.prompt("Notes", entry.notes)
+
+    # Handle password change
+    if Confirm.ask("Change password?", default=False):
+        if Confirm.ask("Generate new password?", default=True):
+            new_password = prompt_and_generate_password()
+            if new_password is None:
+                new_password = entry.password  # Keep existing if generation cancelled
+        else:
+            new_password = getpass("New password: ")
+    else:
+        new_password = entry.password
+
+    updated_entry = PasswordEntry(
+        name=entry.name,
+        username=new_username,
+        password=new_password,
+        url=new_url,
+        notes=new_notes,
+    )
+    vault.add(updated_entry)
+    ui.success(f"Updated entry '{entry.name}'")
+
+
+def core_delete_entry(
+    vault: Vault,
+    name: Optional[str] = None,
+    force: bool = False,
+) -> None:
+    """Core logic for deleting an entry - used by both CLI and interactive modes."""
+    # Get entry by name or interactive selection
+    if name:
+        entry = vault.get(name)
+        if not entry:
+            ui.error(f"Entry '{name}' not found")
+            return
+    else:
+        entry = select_entry(vault, "Select entry to delete")
+        if not entry:
+            return
+
+    # Confirm deletion unless forced
+    if not force:
+        if not Confirm.ask(f"Delete '{entry.name}'?", default=False):
+            ui.info("Cancelled")
+            return
+
+    vault.remove(entry.name)
+    ui.success(f"Deleted entry '{entry.name}'")
+
+
+def core_search_entries(vault: Vault, query: str) -> None:
+    """Core logic for searching entries - used by both CLI and interactive modes."""
+    results = vault.search(query)
+    if results:
+        ui.show_entries_table(results, title=f"Search results for '{query}'")
+    else:
+        ui.info(f"No matches for '{query}'")
+
+
 @app.command("list", help="List all password entries")
 def list_entries(
     search: Annotated[
@@ -379,37 +510,60 @@ def add_entry(
     notes: Annotated[str, typer.Option(help="Additional notes")] = "",
     gen: Annotated[bool, typer.Option("--gen", help="Generate password")] = False,
     length: Annotated[
-        int, typer.Option(min=8, max=25, help="Generated password length")
+        int, typer.Option(help="Generated password length (default: 16)")
     ] = DEFAULT_LEN,
+    lower: Annotated[
+        bool, typer.Option("--lower/--no-lower", help="Include lowercase letters")
+    ] = True,
+    upper: Annotated[
+        bool, typer.Option("--upper/--no-upper", help="Include uppercase letters")
+    ] = True,
+    digits: Annotated[
+        bool, typer.Option("--digits/--no-digits", help="Include numbers")
+    ] = True,
     symbols: Annotated[
-        bool, typer.Option(help="Include symbols in generation")
+        bool, typer.Option("--symbols/--no-symbols", help="Include special characters")
     ] = False,
 ):
     """Add a new password entry."""
     vault = get_vault()
 
-    if not name:
-        name = ui.prompt("Entry name")
-    if not username:
-        username = ui.prompt("Username")
-
     if gen and password:
         ui.error("Cannot specify both password and --gen")
         raise typer.Exit(1)
 
-    if gen:
-        opts = GenOptions(length=length, symbols=symbols)
-        password = generate_password(opts)
-        copied = copy_to_clipboard(password)
-        ui.show_password_generated(password, copied)
-    elif not password:
-        password = getpass("Password: ")
+    if gen and length < 1:
+        ui.error("Password length must be at least 1")
+        raise typer.Exit(1)
 
-    entry = PasswordEntry(
-        name=name, username=username, password=password, url=url, notes=notes
+    if gen and not (lower or upper or digits or symbols):
+        ui.error("At least one character type must be selected for password generation")
+        raise typer.Exit(1)
+
+    # Validate length against number of enabled character classes
+    if gen:
+        required_chars = sum([lower, upper, digits, symbols])
+        if length < required_chars:
+            ui.error(
+                f"Password length ({length}) must be at least {required_chars} "
+                f"to include one character from each enabled character class"
+            )
+            raise typer.Exit(1)
+
+    core_add_entry(
+        vault,
+        name=name,
+        username=username,
+        password=password,
+        url=url,
+        notes=notes,
+        gen=gen,
+        length=length,
+        lower=lower,
+        upper=upper,
+        digits=digits,
+        symbols=symbols,
     )
-    vault.add(entry)
-    ui.success(f"Added entry '{name}'")
 
 
 @app.command("get", help="Get password details")
@@ -421,24 +575,7 @@ def get_entry(
 ):
     """Get password details with interactive selection."""
     vault = get_vault()
-
-    if name:
-        entry = vault.get(name)
-        if not entry:
-            ui.error(f"Entry '{name}' not found")
-            raise typer.Exit(1)
-    else:
-        entry = select_entry(vault, "Select entry to view")
-        if not entry:
-            ui.info("Cancelled")
-            return
-
-    if not show:
-        copied = copy_to_clipboard(entry.password)
-        if copied:
-            ui.success("Password copied to clipboard")
-
-    ui.show_entry_panel(entry, show_password=show)
+    core_get_entry(vault, name=name, show=show)
 
 
 @app.command("edit", help="Edit an existing entry")
@@ -447,40 +584,7 @@ def edit_entry(
 ):
     """Edit an existing entry interactively."""
     vault = get_vault()
-
-    if name:
-        entry = vault.get(name)
-        if not entry:
-            ui.error(f"Entry '{name}' not found")
-            raise typer.Exit(1)
-    else:
-        entry = select_entry(vault, "Select entry to edit")
-        if not entry:
-            ui.info("Cancelled")
-            return
-
-    ui.info(f"Editing '{entry.name}' (press Enter to keep current value)")
-
-    new_username = ui.prompt("Username", entry.username)
-    new_url = ui.prompt("URL", entry.url)
-    new_notes = ui.prompt("Notes", entry.notes)
-
-    if Confirm.ask("Change password?", default=False):
-        new_password = prompt_for_password_generation(for_interactive_mode=False)
-        if new_password is None:
-            new_password = getpass("New password: ")
-    else:
-        new_password = entry.password
-
-    updated_entry = PasswordEntry(
-        name=entry.name,
-        username=new_username,
-        password=new_password,
-        url=new_url,
-        notes=new_notes,
-    )
-    vault.add(updated_entry)
-    ui.success(f"Updated entry '{entry.name}'")
+    core_edit_entry(vault, name=name)
 
 
 @app.command("delete", help="Delete an entry")
@@ -492,25 +596,7 @@ def delete_entry(
 ):
     """Delete an entry with confirmation."""
     vault = get_vault()
-
-    if name:
-        entry = vault.get(name)
-        if not entry:
-            ui.error(f"Entry '{name}' not found")
-            raise typer.Exit(1)
-    else:
-        entry = select_entry(vault, "Select entry to delete")
-        if not entry:
-            ui.info("Cancelled")
-            return
-
-    if not force:
-        if not Confirm.ask(f"Delete '{entry.name}'?", default=False):
-            ui.info("Cancelled")
-            return
-
-    vault.remove(entry.name)
-    ui.success(f"Deleted entry '{entry.name}'")
+    core_delete_entry(vault, name=name, force=force)
 
 
 @app.command("search", help="Search entries")
@@ -519,21 +605,52 @@ def search_entries(
 ):
     """Search entries by name or username."""
     vault = get_vault()
-    results = vault.search(query)
-
-    if results:
-        ui.show_entries_table(results, title=f"Search results for '{query}'")
-    else:
-        ui.info(f"No matches for '{query}'")
+    core_search_entries(vault, query)
 
 
 @app.command("genpass", help="Generate a password")
 def generate_standalone_password(
-    length: Annotated[int, typer.Option(min=8, max=25)] = DEFAULT_LEN,
-    symbols: Annotated[bool, typer.Option(help="Include symbols")] = False,
+    length: Annotated[
+        int, typer.Option(help="Password length (default: 16)")
+    ] = DEFAULT_LEN,
+    lower: Annotated[
+        bool, typer.Option("--lower/--no-lower", help="Include lowercase letters")
+    ] = True,
+    upper: Annotated[
+        bool, typer.Option("--upper/--no-upper", help="Include uppercase letters")
+    ] = True,
+    digits: Annotated[
+        bool, typer.Option("--digits/--no-digits", help="Include numbers")
+    ] = True,
+    symbols: Annotated[
+        bool, typer.Option("--symbols/--no-symbols", help="Include special characters")
+    ] = False,
 ):
     """Generate a standalone password."""
-    opts = GenOptions(length=length, symbols=symbols)
+    if length < 1:
+        ui.error("Password length must be at least 1")
+        raise typer.Exit(1)
+
+    if not (lower or upper or digits or symbols):
+        ui.error("At least one character type must be selected")
+        raise typer.Exit(1)
+
+    # Validate length against number of enabled character classes
+    required_chars = sum([lower, upper, digits, symbols])
+    if length < required_chars:
+        ui.error(
+            f"Password length ({length}) must be at least {required_chars} "
+            f"to include one character from each enabled character class"
+        )
+        raise typer.Exit(1)
+
+    opts = GenOptions(
+        length=length,
+        lower=lower,
+        upper=upper,
+        digits=digits,
+        symbols=symbols,
+    )
     password = generate_password(opts)
     copied = copy_to_clipboard(password)
     ui.show_password_generated(password, copied)
