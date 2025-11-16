@@ -9,7 +9,7 @@ import tempfile
 import pytest
 
 from pulseguard.models import PasswordEntry
-from pulseguard.vault import Vault, VaultDecryptionError
+from pulseguard.vault import Vault, VaultCorruptedError, VaultDecryptionError
 
 
 def run_cli(args, vault_path, env=None, input_data=None):
@@ -35,14 +35,15 @@ class TestCompleteUserWorkflows:
     def test_new_user_complete_workflow(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
+            password = "master_password123"
 
-            vault = Vault(file_path=vault_path)
+            vault = Vault(file_path=vault_path, master_password=password)
             vault.add(PasswordEntry("Gmail", "personal@gmail.com", "InitialPass123!"))
             vault.add(PasswordEntry("GitHub", "developer", "GitToken456!"))
             gmail = vault.get("Gmail")
             assert gmail.password == "InitialPass123!"
 
-            vault2 = Vault(file_path=vault_path)
+            vault2 = Vault(file_path=vault_path, master_password=password)
             assert vault2.count() == 2
             vault2.add(PasswordEntry("Twitter", "user", "TwitterPass789!"))
             vault2.add(
@@ -55,12 +56,12 @@ class TestCompleteUserWorkflows:
                 )
             )
 
-            vault3 = Vault(file_path=vault_path)
+            vault3 = Vault(file_path=vault_path, master_password=password)
             work_accounts = vault3.search("work")
             assert len(work_accounts) == 1
             assert work_accounts[0].name == "Work Email"
 
-            vault4 = Vault(file_path=vault_path)
+            vault4 = Vault(file_path=vault_path, master_password=password)
             vault4.add(
                 PasswordEntry("Gmail", "personal@gmail.com", "NewSecurePass999!")
             )
@@ -68,10 +69,10 @@ class TestCompleteUserWorkflows:
             assert gmail_updated.password == "NewSecurePass999!"
             assert gmail_updated.password != "InitialPass123!"
 
-            vault5 = Vault(file_path=vault_path)
+            vault5 = Vault(file_path=vault_path, master_password=password)
             vault5.remove("Twitter")
 
-            vault_final = Vault(file_path=vault_path)
+            vault_final = Vault(file_path=vault_path, master_password=password)
             assert vault_final.count() == 3
             assert vault_final.get("Gmail").password == "NewSecurePass999!"
             assert vault_final.get("GitHub").password == "GitToken456!"
@@ -98,7 +99,7 @@ class TestCompleteUserWorkflows:
                 content = f.read()
                 assert "BankPass456!" not in content, "Password should be encrypted"
                 data = json.loads(content)
-                assert data.get("encrypted") is True
+                assert "salt" in data and "data" in data
 
             # Reopen with correct password
             vault2 = Vault(file_path=vault_path, master_password=master_password)
@@ -112,72 +113,28 @@ class TestCompleteUserWorkflows:
             with pytest.raises(VaultDecryptionError):
                 Vault(file_path=vault_path, master_password="WrongPassword!")
 
-    def test_migration_from_plaintext_to_encrypted(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            vault_path = os.path.join(tmpdir, "vault.json")
-
-            with pytest.warns():  # Will warn about plaintext
-                vault_plain = Vault(file_path=vault_path, master_password=None)
-                vault_plain.add(PasswordEntry("Gmail", "user1", "pass1"))
-                vault_plain.add(PasswordEntry("GitHub", "user2", "pass2"))
-                vault_plain.add(PasswordEntry("Twitter", "user3", "pass3"))
-
-            with open(vault_path, "r") as f:
-                content = f.read()
-                assert "pass1" in content, "Should be plaintext"
-
-            master_password = "NewMasterPassword123!"
-
-            with pytest.warns():
-                vault_migrate = Vault(file_path=vault_path, master_password=None)
-
-                old_entries = vault_migrate.get_all()
-
-            vault_encrypted = Vault(
-                file_path=vault_path, master_password=master_password
-            )
-
-            # Manually migrate entries (in real app, this would be automatic)
-            for entry in old_entries:
-                vault_encrypted.add(entry)
-
-            with open(vault_path, "r") as f:
-                content = f.read()
-                assert "pass1" not in content, "Should now be encrypted"
-                data = json.loads(content)
-                assert data.get("encrypted") is True
-
-            vault_final = Vault(file_path=vault_path, master_password=master_password)
-            assert vault_final.count() == 3
-
-            assert vault_final.get("Gmail").password == "pass1"
-            assert vault_final.get("GitHub").password == "pass2"
-            assert vault_final.get("Twitter").password == "pass3"
-
-            with pytest.raises(VaultDecryptionError):
-                Vault(file_path=vault_path, master_password=None)
-
 
 class TestErrorRecoveryWorkflows:
     def test_recovery_from_corrupted_vault(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
+            password = "password123"
 
-            vault1 = Vault(file_path=vault_path)
+            vault1 = Vault(file_path=vault_path, master_password=password)
             vault1.add(PasswordEntry("Test", "user", "pass"))
 
             # Corrupt the file
             with open(vault_path, "w") as f:
                 f.write("corrupted garbage data {{{")
 
-            with pytest.raises(Exception):  # VaultCorruptedError
-                Vault(file_path=vault_path)
+            with pytest.raises(VaultCorruptedError):
+                Vault(file_path=vault_path, master_password=password)
 
             # User deletes corrupted file
             os.remove(vault_path)
 
             # Can create new vault
-            vault2 = Vault(file_path=vault_path)
+            vault2 = Vault(file_path=vault_path, master_password=password)
             assert vault2.count() == 0
             vault2.add(PasswordEntry("Recovered", "user", "pass"))
             assert vault2.count() == 1
@@ -185,12 +142,13 @@ class TestErrorRecoveryWorkflows:
     def test_handling_concurrent_modifications(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
+            password = "password123"
 
-            vault_init = Vault(file_path=vault_path)
+            vault_init = Vault(file_path=vault_path, master_password=password)
             vault_init.add(PasswordEntry("Initial", "user", "pass"))
 
-            vault1 = Vault(file_path=vault_path)
-            vault2 = Vault(file_path=vault_path)
+            vault1 = Vault(file_path=vault_path, master_password=password)
+            vault2 = Vault(file_path=vault_path, master_password=password)
 
             assert vault1.count() == 1
             assert vault2.count() == 1
@@ -202,7 +160,7 @@ class TestErrorRecoveryWorkflows:
             vault2.add(PasswordEntry("Entry2", "user2", "pass2"))
 
             # Last write (vault2) wins - vault1's changes are lost
-            vault_final = Vault(file_path=vault_path)
+            vault_final = Vault(file_path=vault_path, master_password=password)
 
             # Only Entry2 should be present (last write)
             assert vault_final.get("Entry2") is not None
@@ -213,7 +171,8 @@ class TestRealWorldScenarios:
     def test_password_manager_for_developer(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
-            vault = Vault(file_path=vault_path)
+            password = "master_password123"
+            vault = Vault(file_path=vault_path, master_password=password)
 
             vault.add(
                 PasswordEntry(

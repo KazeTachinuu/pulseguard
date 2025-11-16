@@ -3,7 +3,6 @@
 import json
 import os
 import tempfile
-import warnings
 
 import pytest
 
@@ -11,7 +10,6 @@ from pulseguard import PasswordEntry, Vault
 from pulseguard.vault import (
     VaultCorruptedError,
     VaultDecryptionError,
-    VaultPlaintextWarning,
 )
 
 
@@ -30,35 +28,12 @@ class TestEncryptedVaultCreation:
                 content = f.read()
                 data = json.loads(content)
 
-                assert (
-                    data.get("encrypted") is True
-                ), "Vault must be marked as encrypted"
                 assert "salt" in data, "Vault must contain salt"
                 assert "data" in data, "Vault must contain encrypted data"
                 assert "entries" not in data, "Vault must not have plaintext entries"
 
                 assert "pass123" not in content, "Password must not be in plaintext"
                 assert "Test" not in content, "Entry name must not be in plaintext"
-
-        finally:
-            if os.path.exists(temp_file):
-                os.unlink(temp_file)
-
-    def test_create_plaintext_vault_with_warning(self):
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
-            temp_file = f.name
-
-        try:
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
-
-                vault = Vault(temp_file, master_password=None)
-                entry = PasswordEntry("Test", "user", "pass123")
-                vault.add(entry)
-
-                assert len(w) > 0, "Must warn about plaintext storage"
-                assert issubclass(w[0].category, VaultPlaintextWarning)
-                assert "PLAINTEXT" in str(w[0].message)
 
         finally:
             if os.path.exists(temp_file):
@@ -124,89 +99,6 @@ class TestEncryptedVaultLoading:
                 Vault(temp_file, master_password="wrong_password")
 
             assert "decrypt" in str(exc_info.value).lower()
-
-        finally:
-            if os.path.exists(temp_file):
-                os.unlink(temp_file)
-
-    def test_load_encrypted_vault_no_password(self):
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
-            temp_file = f.name
-
-        try:
-            vault1 = Vault(temp_file, master_password="password")
-            vault1.add(PasswordEntry("Test", "user", "pass"))
-
-            with pytest.raises(VaultDecryptionError) as exc_info:
-                Vault(temp_file, master_password=None)
-
-            assert "no master password" in str(exc_info.value).lower()
-
-        finally:
-            if os.path.exists(temp_file):
-                os.unlink(temp_file)
-
-
-class TestPlaintextVaultBackwardCompatibility:
-    def test_load_plaintext_vault_with_warning(self):
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
-            temp_file = f.name
-
-        try:
-            plaintext_data = {
-                "entries": [
-                    {
-                        "name": "Test",
-                        "username": "user",
-                        "password": "pass",
-                        "url": "",
-                        "notes": "",
-                        "created_at": "2024-01-01T00:00:00",
-                    }
-                ]
-            }
-            with open(temp_file, "w") as f:
-                json.dump(plaintext_data, f)
-
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
-
-                vault = Vault(temp_file, master_password=None)
-
-                assert len(w) > 0, "Must warn about plaintext vault"
-                assert issubclass(w[0].category, VaultPlaintextWarning)
-
-            assert vault.count() == 1
-            entry = vault.get("Test")
-            assert entry.username == "user"
-            assert entry.password == "pass"
-
-        finally:
-            if os.path.exists(temp_file):
-                os.unlink(temp_file)
-
-    def test_migrate_plaintext_to_encrypted(self):
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
-            temp_file = f.name
-
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                vault1 = Vault(temp_file, master_password=None)
-                vault1.add(PasswordEntry("OldEntry", "user", "pass"))
-
-            vault2 = Vault(temp_file, master_password="new_password")
-
-            vault2.add(PasswordEntry("NewEntry", "user2", "pass2"))
-
-            with open(temp_file, "r") as f:
-                data = json.loads(f.read())
-                assert data.get("encrypted") is True, "Vault should now be encrypted"
-
-            vault3 = Vault(temp_file, master_password="new_password")
-            assert vault3.count() == 2
-            assert vault3.get("OldEntry") is not None
-            assert vault3.get("NewEntry") is not None
 
         finally:
             if os.path.exists(temp_file):
@@ -350,18 +242,11 @@ class TestEncryptedVaultErrors:
 
         try:
             with open(temp_file, "w") as f:
-                json.dump({"encrypted": True, "salt": "c29tZXNhbHQ="}, f)
+                json.dump({"salt": "c29tZXNhbHQ="}, f)
 
-            # but has no "entries" field, so it loads as empty vault with warning
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
-                vault = Vault(temp_file, master_password=None)
-
-                assert len(w) > 0
-                assert issubclass(w[0].category, VaultPlaintextWarning)
-
-            # Vault should be empty (no entries field)
-            assert vault.count() == 0
+            # Missing "data" field should raise VaultCorruptedError
+            with pytest.raises(VaultCorruptedError):
+                Vault(temp_file, master_password="password")
 
         finally:
             if os.path.exists(temp_file):
@@ -420,42 +305,6 @@ class TestEncryptedVaultSecurity:
             assert (
                 data1 != data2
             ), "Different passwords must produce different encrypted vaults"
-
-        finally:
-            if os.path.exists(temp_file1):
-                os.unlink(temp_file1)
-            if os.path.exists(temp_file2):
-                os.unlink(temp_file2)
-
-    def test_empty_password_allowed_but_different(self):
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
-            temp_file1 = f.name
-
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
-            temp_file2 = f.name
-
-        try:
-            # Vault with empty password (encrypted)
-            vault1 = Vault(temp_file1, master_password="")
-            vault1.add(PasswordEntry("Test", "user", "pass"))
-
-            # Vault with no password (plaintext)
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                vault2 = Vault(temp_file2, master_password=None)
-                vault2.add(PasswordEntry("Test", "user", "pass"))
-
-            with open(temp_file1, "r") as f:
-                data1 = json.loads(f.read())
-
-            with open(temp_file2, "r") as f:
-                data2 = json.loads(f.read())
-
-            # Empty password vault should be encrypted
-            assert data1.get("encrypted") is True
-            # No password vault should be plaintext
-            assert data2.get("encrypted") is not True
-            assert "entries" in data2
 
         finally:
             if os.path.exists(temp_file1):

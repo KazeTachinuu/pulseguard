@@ -11,7 +11,6 @@ from pulseguard.models import PasswordEntry
 from pulseguard.vault import (
     Vault,
     VaultCorruptedError,
-    VaultPlaintextWarning,
 )
 
 
@@ -20,7 +19,7 @@ class TestVaultDataPersistence:
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
 
-            vault1 = Vault(file_path=vault_path)
+            vault1 = Vault(file_path=vault_path, master_password="password123")
             entry = PasswordEntry("Gmail", "user@gmail.com", "SecurePass123!")
             vault1.add(entry)
 
@@ -30,9 +29,10 @@ class TestVaultDataPersistence:
                 content = f.read()
                 assert len(content) > 0, "Vault file should not be empty"
                 data = json.loads(content)
-                assert "entries" in data, "Vault should have entries key"
+                assert "salt" in data, "Vault should have salt"
+                assert "data" in data, "Vault should have encrypted data"
 
-            vault2 = Vault(file_path=vault_path)
+            vault2 = Vault(file_path=vault_path, master_password="password123")
 
             retrieved = vault2.get("Gmail")
             assert retrieved is not None, "Password should exist after reload"
@@ -44,7 +44,7 @@ class TestVaultDataPersistence:
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
 
-            vault1 = Vault(file_path=vault_path)
+            vault1 = Vault(file_path=vault_path, master_password="password123")
             passwords = []
             for i in range(10):
                 entry = PasswordEntry(
@@ -60,7 +60,7 @@ class TestVaultDataPersistence:
             assert vault1.count() == 10
 
             # Reload vault
-            vault2 = Vault(file_path=vault_path)
+            vault2 = Vault(file_path=vault_path, master_password="password123")
 
             assert vault2.count() == 10, "All 10 passwords should survive reload"
 
@@ -77,7 +77,7 @@ class TestVaultDataPersistence:
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
 
-            vault1 = Vault(file_path=vault_path)
+            vault1 = Vault(file_path=vault_path, master_password="password123")
             entry1 = PasswordEntry("GitHub", "dev", "OldPassword123")
             vault1.add(entry1)
 
@@ -88,7 +88,7 @@ class TestVaultDataPersistence:
             assert retrieved.password == "NewPassword456"
 
             # Reload and verify new password persists
-            vault2 = Vault(file_path=vault_path)
+            vault2 = Vault(file_path=vault_path, master_password="password123")
             retrieved = vault2.get("GitHub")
             assert retrieved is not None
             assert (
@@ -102,7 +102,7 @@ class TestVaultDataPersistence:
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
 
-            vault1 = Vault(file_path=vault_path)
+            vault1 = Vault(file_path=vault_path, master_password="password123")
             vault1.add(PasswordEntry("Keep1", "user1", "pass1"))
             vault1.add(PasswordEntry("Delete", "user2", "pass2"))
             vault1.add(PasswordEntry("Keep2", "user3", "pass3"))
@@ -116,7 +116,7 @@ class TestVaultDataPersistence:
             assert vault1.get("Delete") is None
 
             # Reload and verify deletion persisted
-            vault2 = Vault(file_path=vault_path)
+            vault2 = Vault(file_path=vault_path, master_password="password123")
             assert vault2.count() == 2, "Deleted entry should stay deleted"
             assert vault2.get("Delete") is None, "Deleted entry should not come back"
             assert vault2.get("Keep1") is not None
@@ -127,7 +127,7 @@ class TestVaultSearchFunctionality:
     def test_search_by_name_finds_correct_results(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
-            vault = Vault(file_path=vault_path)
+            vault = Vault(file_path=vault_path, master_password="password123")
 
             vault.add(PasswordEntry("Gmail Personal", "personal@gmail.com", "pass1"))
             vault.add(PasswordEntry("Gmail Work", "work@gmail.com", "pass2"))
@@ -152,7 +152,7 @@ class TestVaultSearchFunctionality:
     def test_search_by_username_finds_correct_results(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
-            vault = Vault(file_path=vault_path)
+            vault = Vault(file_path=vault_path, master_password="password123")
 
             vault.add(PasswordEntry("Service1", "admin@company.com", "pass1"))
             vault.add(PasswordEntry("Service2", "admin@personal.com", "pass2"))
@@ -170,7 +170,7 @@ class TestVaultSearchFunctionality:
     def test_search_case_insensitive(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
-            vault = Vault(file_path=vault_path)
+            vault = Vault(file_path=vault_path, master_password="password123")
 
             vault.add(PasswordEntry("GitHub", "DevUser", "pass1"))
 
@@ -183,7 +183,7 @@ class TestVaultSearchFunctionality:
     def test_search_no_matches(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
-            vault = Vault(file_path=vault_path)
+            vault = Vault(file_path=vault_path, master_password="password123")
 
             vault.add(PasswordEntry("GitHub", "dev", "pass1"))
 
@@ -201,19 +201,22 @@ class TestVaultFileCorruption:
                 f.write("{this is not valid json}")
 
             with pytest.raises(VaultCorruptedError) as exc_info:
-                Vault(file_path=vault_path)
+                Vault(file_path=vault_path, master_password="password123")
 
-            assert "invalid json" in str(exc_info.value).lower()
+            assert "corrupted or invalid" in str(exc_info.value).lower()
 
-    def test_empty_json_object_handled(self):
+    def test_empty_json_object_raises_error(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
 
             with open(vault_path, "w") as f:
                 f.write("{}")
 
-            vault = Vault(file_path=vault_path)
-            assert vault.count() == 0
+            # Empty JSON is not a valid encrypted vault
+            with pytest.raises(VaultCorruptedError) as exc_info:
+                Vault(file_path=vault_path, master_password="password123")
+
+            assert "missing required" in str(exc_info.value).lower()
 
     def test_missing_file_creates_new_vault(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -223,7 +226,7 @@ class TestVaultFileCorruption:
             assert not os.path.exists(vault_path)
 
             # Creating vault should work
-            vault = Vault(file_path=vault_path)
+            vault = Vault(file_path=vault_path, master_password="password123")
             assert vault.count() == 0
 
             vault.add(PasswordEntry("Test", "user", "pass"))
@@ -234,7 +237,7 @@ class TestVaultDataIntegrity:
     def test_unicode_passwords_survive_round_trip(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
-            vault1 = Vault(file_path=vault_path)
+            vault1 = Vault(file_path=vault_path, master_password="password123")
 
             entry = PasswordEntry(
                 name="Test 测试",
@@ -246,7 +249,7 @@ class TestVaultDataIntegrity:
             vault1.add(entry)
 
             # Reload and verify all unicode preserved
-            vault2 = Vault(file_path=vault_path)
+            vault2 = Vault(file_path=vault_path, master_password="password123")
             retrieved = vault2.get("Test 测试")
             assert retrieved is not None
             assert retrieved.name == "Test 测试"
@@ -258,7 +261,7 @@ class TestVaultDataIntegrity:
     def test_special_characters_in_all_fields(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
-            vault1 = Vault(file_path=vault_path)
+            vault1 = Vault(file_path=vault_path, master_password="password123")
 
             entry = PasswordEntry(
                 name="Test!@#$%^&*()",
@@ -270,7 +273,7 @@ class TestVaultDataIntegrity:
             vault1.add(entry)
 
             # Reload and verify
-            vault2 = Vault(file_path=vault_path)
+            vault2 = Vault(file_path=vault_path, master_password="password123")
             retrieved = vault2.get("Test!@#$%^&*()")
             assert retrieved is not None
             assert retrieved.password == "Pa$$w0rd\"with'quotes"
@@ -279,7 +282,7 @@ class TestVaultDataIntegrity:
     def test_timestamps_preserved(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
-            vault1 = Vault(file_path=vault_path)
+            vault1 = Vault(file_path=vault_path, master_password="password123")
 
             before = datetime.now(timezone.utc)
             entry = PasswordEntry("Test", "user", "pass")
@@ -290,7 +293,7 @@ class TestVaultDataIntegrity:
             assert before <= entry.created_at <= after
 
             # Reload and verify timestamp preserved
-            vault2 = Vault(file_path=vault_path)
+            vault2 = Vault(file_path=vault_path, master_password="password123")
             retrieved = vault2.get("Test")
             assert retrieved.created_at is not None
             assert retrieved.created_at == entry.created_at
@@ -298,7 +301,7 @@ class TestVaultDataIntegrity:
     def test_optional_fields_preserved(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
-            vault1 = Vault(file_path=vault_path)
+            vault1 = Vault(file_path=vault_path, master_password="password123")
 
             # Entry with URL but no notes
             entry1 = PasswordEntry("Test1", "user1", "pass1", url="https://example.com")
@@ -319,7 +322,7 @@ class TestVaultDataIntegrity:
             vault1.add(entry4)
 
             # Reload and verify all variations preserved
-            vault2 = Vault(file_path=vault_path)
+            vault2 = Vault(file_path=vault_path, master_password="password123")
 
             r1 = vault2.get("Test1")
             assert r1.url == "https://example.com"
@@ -336,45 +339,3 @@ class TestVaultDataIntegrity:
             r4 = vault2.get("Test4")
             assert r4.url == ""
             assert r4.notes == ""
-
-
-class TestVaultPlaintextMode:
-    def test_plaintext_vault_triggers_warning(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            vault_path = os.path.join(tmpdir, "vault.json")
-
-            # Creating vault without master password should warn
-            with pytest.warns(VaultPlaintextWarning):
-                vault = Vault(file_path=vault_path, master_password=None)
-                vault.add(PasswordEntry("Test", "user", "pass"))
-
-    def test_plaintext_vault_file_is_readable(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            vault_path = os.path.join(tmpdir, "vault.json")
-
-            with pytest.warns(VaultPlaintextWarning):
-                vault = Vault(file_path=vault_path, master_password=None)
-                vault.add(PasswordEntry("Gmail", "user@gmail.com", "MyPassword123"))
-
-            with open(vault_path, "r") as f:
-                content = f.read()
-                data = json.loads(content)
-
-            assert "entries" in data
-            assert len(data["entries"]) == 1
-            entry = data["entries"][0]
-            assert entry["name"] == "Gmail"
-            assert entry["password"] == "MyPassword123"  # NOT encrypted!
-            assert "encrypted" not in data or data.get("encrypted") is False
-
-    def test_loading_plaintext_vault_warns(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            vault_path = os.path.join(tmpdir, "vault.json")
-
-            with pytest.warns(VaultPlaintextWarning):
-                vault1 = Vault(file_path=vault_path, master_password=None)
-                vault1.add(PasswordEntry("Test", "user", "pass"))
-
-            with pytest.warns(VaultPlaintextWarning):
-                vault2 = Vault(file_path=vault_path, master_password=None)
-                assert vault2.count() == 1

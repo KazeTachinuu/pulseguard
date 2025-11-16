@@ -1,4 +1,4 @@
-"""PulseGuard - A minimal, secure password manager."""
+"""PulseGuard password manager."""
 
 from .config import config
 from .models import PasswordEntry
@@ -9,7 +9,6 @@ from .vault import (
     VaultEncryptionError,
     VaultError,
     VaultNotFoundError,
-    VaultPlaintextWarning,
     find_duplicates,
     find_reused_passwords,
     get_vault_stats,
@@ -25,7 +24,6 @@ __all__ = [
     "VaultCorruptedError",
     "VaultEncryptionError",
     "VaultDecryptionError",
-    "VaultPlaintextWarning",
     "find_duplicates",
     "find_reused_passwords",
     "get_vault_stats",

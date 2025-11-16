@@ -6,7 +6,6 @@ import json
 import os
 import stat
 import tempfile
-import warnings
 from typing import List, Optional
 
 from .config import Config, config
@@ -50,19 +49,24 @@ class VaultDecryptionError(VaultError):
     pass
 
 
-class VaultPlaintextWarning(UserWarning):
-    """Warning for plaintext vault detected."""
-
-    pass
-
-
 class Vault:
-    """Password vault with encrypted JSON file persistence."""
+    """Password vault with encrypted JSON file persistence.
 
-    def __init__(
-        self, file_path: Optional[str] = None, master_password: Optional[str] = None
-    ):
-        """Initialize vault with optional custom file path and master password."""
+    All vaults are encrypted with AES-128 (Fernet) + Argon2id key derivation.
+    Master password is required for all operations.
+    """
+
+    def __init__(self, file_path: Optional[str] = None, *, master_password: str):
+        """Initialize vault with encrypted storage.
+
+        Args:
+            file_path: Optional custom vault file path (defaults to config.vault_path)
+            master_password: Master password for encryption (required)
+
+        Raises:
+            VaultDecryptionError: If vault exists but cannot be decrypted
+            VaultCorruptedError: If vault file is corrupted or invalid
+        """
         self.file_path = file_path or config.vault_path
         self.master_password = master_password
         self.entries: List[PasswordEntry] = []
@@ -70,16 +74,8 @@ class Vault:
         self._dirty = False
         self._load()
 
-    def _is_encrypted_file(self, content: str) -> bool:
-        """Check if file content is encrypted format."""
-        try:
-            data = json.loads(content)
-            return data.get("encrypted", False) and "salt" in data and "data" in data
-        except (json.JSONDecodeError, KeyError):
-            return False
-
     def _load(self) -> None:
-        """Load entries from JSON file (encrypted or plaintext)."""
+        """Load and decrypt entries from encrypted JSON file."""
         if not os.path.exists(self.file_path):
             return
 
@@ -95,43 +91,27 @@ class Vault:
             except UnicodeDecodeError:
                 raise VaultCorruptedError("Vault file has invalid encoding")
 
-            if self._is_encrypted_file(content):
-                if not self.master_password:
-                    raise VaultDecryptionError(
-                        "Vault is encrypted but no master password provided"
+            # All vault files must be encrypted
+            try:
+                data = json.loads(content)
+                if "salt" not in data or "data" not in data:
+                    raise VaultCorruptedError(
+                        "Vault file is missing required encrypted fields."
                     )
 
-                try:
-                    data = json.loads(content)
-                    self._salt = base64.b64decode(data["salt"])
-                    ciphertext = base64.b64decode(data["data"])
+                self._salt = base64.b64decode(data["salt"])
+                ciphertext = base64.b64decode(data["data"])
 
-                    plaintext = decrypt_data(
-                        ciphertext, self.master_password, self._salt
-                    )
-                    decrypted_content = plaintext.decode("utf-8")
-                    vault_data = json.loads(decrypted_content)
+                plaintext = decrypt_data(ciphertext, self.master_password, self._salt)
+                decrypted_content = plaintext.decode("utf-8")
+                vault_data = json.loads(decrypted_content)
 
-                except (DecryptionError, CryptoError) as e:
-                    raise VaultDecryptionError(f"Failed to decrypt vault: {e}") from e
-                except (json.JSONDecodeError, KeyError, ValueError) as e:
-                    raise VaultCorruptedError(
-                        f"Decrypted vault has invalid format: {e}"
-                    ) from e
-
-            else:
-                warnings.warn(
-                    "SECURITY WARNING: Vault is stored in PLAINTEXT. "
-                    "Passwords are NOT encrypted. Please migrate to encrypted vault.",
-                    VaultPlaintextWarning,
-                    stacklevel=2,
-                )
-                try:
-                    vault_data = json.loads(content)
-                except json.JSONDecodeError as e:
-                    raise VaultCorruptedError(
-                        f"Vault file has invalid JSON: {e}"
-                    ) from e
+            except (DecryptionError, CryptoError) as e:
+                raise VaultDecryptionError(f"Failed to decrypt vault: {e}") from e
+            except (json.JSONDecodeError, KeyError, ValueError) as e:
+                raise VaultCorruptedError(
+                    f"Vault file is corrupted or invalid: {e}"
+                ) from e
 
             for entry_data in vault_data.get("entries", []):
                 self.entries.append(PasswordEntry.from_dict(entry_data))
@@ -142,7 +122,7 @@ class Vault:
             raise VaultCorruptedError(f"Failed to read vault file: {e}") from e
 
     def _save(self) -> None:
-        """Save entries to JSON file with atomic write (encrypted if master password set)."""
+        """Save and encrypt entries to JSON file with atomic write."""
         config.ensure_vault_dir()
 
         vault_data = {"entries": [entry.to_dict() for entry in self.entries]}
@@ -155,31 +135,21 @@ class Vault:
         )
 
         try:
-            if self.master_password is not None:
-                ciphertext, salt = encrypt_data(
-                    json_content.encode("utf-8"), self.master_password, self._salt
-                )
-                self._salt = salt
+            # All vaults are always encrypted
+            ciphertext, salt = encrypt_data(
+                json_content.encode("utf-8"), self.master_password, self._salt
+            )
+            self._salt = salt
 
-                encrypted_vault = {
-                    "encrypted": True,
-                    "salt": base64.b64encode(salt).decode("ascii"),
-                    "data": base64.b64encode(ciphertext).decode("ascii"),
-                }
+            encrypted_vault = {
+                "salt": base64.b64encode(salt).decode("ascii"),
+                "data": base64.b64encode(ciphertext).decode("ascii"),
+            }
 
-                with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-                    json.dump(encrypted_vault, f, indent=2)
-            else:
-                warnings.warn(
-                    "SECURITY WARNING: Saving vault in PLAINTEXT. "
-                    "Passwords are NOT encrypted!",
-                    VaultPlaintextWarning,
-                    stacklevel=2,
-                )
-                with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-                    f.write(json_content)
+            with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+                json.dump(encrypted_vault, f, indent=2)
 
-            # Set secure permissions (0600 - owner read/write only)
+            # Set permissions (0600)
             os.chmod(temp_path, stat.S_IRUSR | stat.S_IWUSR)
 
             # Atomic replace (works on Unix and Windows)
@@ -358,7 +328,7 @@ def find_reused_passwords(vault: Vault) -> List[tuple[int, List[PasswordEntry]]]
 
 def get_vault_stats(vault: Vault) -> dict:
     """
-    Get comprehensive vault statistics.
+    Get vault statistics.
 
     Returns:
         Dictionary with statistics:

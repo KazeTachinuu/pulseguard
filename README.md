@@ -1,6 +1,15 @@
 # PulseGuard
 
-A simple password manager with CLI and interactive console.
+Terminal password manager with encryption and interactive CLI.
+
+## Features
+
+- AES-128 (Fernet) + Argon2id key derivation
+- Password generation with `secrets` module
+- Categories, tags, favorites
+- Duplicate and reused password detection
+- Cross-platform clipboard support
+- Access tracking
 
 ## Installation
 
@@ -10,89 +19,95 @@ uv sync
 
 ## Usage
 
-### Command Line
-
 ```bash
-pulseguard list                           # List passwords
-pulseguard add Gmail user@example.com pwd # Add password
-pulseguard genpass --length 20 --symbols true --upper true --lower true --digits true # genPass
-pulseguard get Gmail                      # Get password details
-pulseguard edit Gmail                     # Edit password
-pulseguard delete Gmail                   # Delete password
-pulseguard search gmail                   # Search passwords
-pulseguard demo                           # Add sample data
-pulseguard                               # Interactive console
+pulseguard          # Interactive mode
+pulseguard list     # List entries
+pulseguard add      # Add entry
+pulseguard get      # Get entry
+pulseguard search   # Search entries
+pulseguard genpass  # Generate password
+pulseguard stats    # Vault stats
+pulseguard check    # Security check
 ```
 
-#### Add new entry and generate password
+## Commands
 
-When `--gen` is provided, PulseGuard generates the password. All generation flags are optional:
-- `--length <int>` (required only if provided, must be a valid integer)
-- `--symbols true|false` (default: true)
-- `--upper true|false` (default: true)
-- `--lower true|false` (default: true)
-- `--digits true|false` (default: true)
-
-Examples:
-```bash
-pulseguard add Gmail user@example.com dummy --gen
-pulseguard add Gmail user@example.com dummy --gen --length 18
-pulseguard add Gmail user@example.com dummy --gen --length 20 --symbols false --upper true --lower true --digits true
-
-
-### Python API
-
-```python
-from pulseguard import Vault, PasswordEntry
-
-vault = Vault()
-entry = PasswordEntry("Gmail", "user@gmail.com", "password")
-vault.add(entry)
-
-# Get all entries
-entries = vault.get_all()
-
-# Search
-results = vault.search("gmail")
-```
+| Command | Aliases | Description |
+|---------|---------|-------------|
+| `list` | `ls` | List entries |
+| `add` | `a` | Add entry |
+| `get` | `g` | Get entry |
+| `edit` | `e` | Edit entry |
+| `delete` | `d`, `del` | Delete entry |
+| `search` | `s` | Search entries |
+| `genpass` | `gen` | Generate password |
+| `stats` | | Vault statistics |
+| `check` | | Security check |
+| `categories` | | List categories |
+| `rename-category` | | Rename category |
+| `move-category` | | Move entries |
 
 ## Configuration
 
-Set vault file location:
 ```bash
 export PULSEGUARD_VAULT_PATH="/path/to/vault.json"
 ```
 
 Default: `~/.pulseguard/vault.json`
 
+## Security
+
+- Argon2id: 2 iterations, 64 MiB memory, 4 parallelism
+- File permissions: 0600
+- Master password always required
+- AES-128 (Fernet) encryption for all vault data
+
+## Python API
+
+```python
+from pulseguard import Vault, PasswordEntry
+
+# Create encrypted vault (master password required)
+vault = Vault(master_password="your-master-password")
+entry = PasswordEntry("name", "user", "pass")
+vault.add(entry)
+
+# Search and retrieve
+results = vault.search("query")
+entries = vault.get_all()
+```
+
+**Note**: All vaults are encrypted with AES-128 (Fernet) + Argon2id. Master password is required for all operations.
+
 ## Development
 
 ```bash
 uv sync
-
-# Install git hooks (auto-format on commit)
-./setup-hooks.sh
-
-# Add pytest
-uv add pytest
-
-# Run tests
-uv run pytest
-
-# Manual formatting
+./setup-hooks.sh    # Git hooks for auto-format
+uv run pytest       # Tests
 uv run ruff check src tests
 uv run black src tests
+uv run mypy src
 ```
 
-## Project Structure
+## Structure
 
 ```
 src/pulseguard/
-├── cli.py          # CLI interface
-├── console.py      # Interactive console
-├── config.py       # Configuration
-├── models.py       # Data models
-├── vault.py        # Vault management
-├── operations.py   # CLI operations
-└── messages.py     # User messages
+├── cli.py              # Typer CLI
+├── cli_helpers.py      # Interactive mode
+├── cli_operations.py   # Command logic
+├── config.py           # Config
+├── crypto.py           # Argon2id + Fernet
+├── models.py           # PasswordEntry
+├── passwordgen.py      # Password generation
+├── ui.py               # Rich UI
+└── vault.py            # Storage
 ```
+
+## Dependencies
+
+- Python >=3.11
+- cryptography, argon2-cffi
+- typer, rich, questionary, inquirer
+- pyperclip

@@ -1,4 +1,4 @@
-"""Modern CLI using Typer framework."""
+"""CLI using Typer."""
 
 import os
 import sys
@@ -31,7 +31,7 @@ from .config import config
 
 app = typer.Typer(
     name="pulseguard",
-    help="Secure password manager with modern CLI",
+    help="Password manager",
     add_completion=True,
     no_args_is_help=False,
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -50,7 +50,7 @@ def main_callback(
         ),
     ] = None,
 ):
-    """PulseGuard password manager - runs interactive mode if no command given."""
+    """Runs interactive mode if no command given."""
     if vault:
         config.vault_path = os.path.expanduser(vault)
 
@@ -68,21 +68,21 @@ def list_entries():
 
 @app.command("add", help=get_help_with_aliases("Add a new password entry", "add"))
 def add_entry():
-    """Add a new password entry interactively."""
+    """Add a new password entry."""
     vault = get_vault()
     core_add_entry(vault)
 
 
 @app.command("get", help=get_help_with_aliases("Get password details", "get"))
 def get_entry():
-    """Get password details with interactive selection."""
+    """Get password details."""
     vault = get_vault()
     core_get_entry(vault)
 
 
 @app.command("edit", help=get_help_with_aliases("Edit an existing entry", "edit"))
 def edit_entry():
-    """Edit an existing entry interactively."""
+    """Edit an existing entry."""
     vault = get_vault()
     core_edit_entry(vault)
 
@@ -96,7 +96,7 @@ def delete_entry():
 
 @app.command("search", help=get_help_with_aliases("Search entries", "search"))
 def search_entries():
-    """Search entries interactively."""
+    """Search entries."""
     vault = get_vault()
     # Use select_entry which has autocomplete search built-in
     from .ui import select_entry
@@ -116,7 +116,7 @@ def search_entries():
 
 @app.command("genpass", help=get_help_with_aliases("Generate a password", "genpass"))
 def generate_standalone_password():
-    """Generate a password interactively."""
+    """Generate a password."""
     prompt_and_generate_password()
 
 
@@ -145,14 +145,14 @@ def list_categories():
 
 @app.command("rename-category", help="Rename a category")
 def rename_category():
-    """Rename a category interactively."""
+    """Rename a category."""
     vault = get_vault()
     core_rename_category(vault)
 
 
 @app.command("move-category", help="Move entries between categories")
 def move_category():
-    """Move entries between categories interactively."""
+    """Move entries between categories."""
     vault = get_vault()
     core_move_entries_to_category(vault)
 

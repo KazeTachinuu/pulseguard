@@ -8,7 +8,7 @@ import tempfile
 import pytest
 
 from pulseguard.models import PasswordEntry
-from pulseguard.vault import Vault, VaultDecryptionError, VaultPlaintextWarning
+from pulseguard.vault import Vault, VaultDecryptionError
 
 
 class TestEncryptedVaultCreation:
@@ -26,7 +26,6 @@ class TestEncryptedVaultCreation:
                 content = f.read()
                 data = json.loads(content)
 
-            assert data.get("encrypted") is True, "File should be marked as encrypted"
             assert "salt" in data, "File should contain salt"
             assert "data" in data, "File should contain encrypted data"
 
@@ -86,7 +85,7 @@ class TestEncryptedVaultCreation:
             assert entry.url == "https://github.com"
             assert entry.notes == "Personal account"
 
-    def test_no_password_cannot_open_encrypted_vault(self):
+    def test_wrong_password_cannot_open_encrypted_vault(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             vault_path = os.path.join(tmpdir, "vault.json")
 
@@ -94,9 +93,9 @@ class TestEncryptedVaultCreation:
             vault1.add(PasswordEntry("Test", "user", "pass"))
 
             with pytest.raises(VaultDecryptionError) as exc_info:
-                Vault(file_path=vault_path, master_password=None)
+                Vault(file_path=vault_path, master_password="WrongPassword")
 
-            assert "no master password" in str(exc_info.value).lower()
+            assert "decrypt" in str(exc_info.value).lower()
 
 
 class TestEncryptionRoundTrips:
@@ -189,59 +188,6 @@ class TestEncryptionRoundTrips:
             assert entry.notes == "备注信息 with émojis 😀"
 
 
-class TestPlaintextToEncryptedMigration:
-    def test_plaintext_vault_can_be_read(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            vault_path = os.path.join(tmpdir, "vault.json")
-
-            with pytest.warns(VaultPlaintextWarning):
-                vault1 = Vault(file_path=vault_path, master_password=None)
-                vault1.add(PasswordEntry("Test", "user", "pass123"))
-
-            with pytest.warns(VaultPlaintextWarning):
-                vault2 = Vault(file_path=vault_path, master_password=None)
-                entry = vault2.get("Test")
-                assert entry.password == "pass123"
-
-    def test_adding_to_plaintext_vault_with_password_encrypts_it(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            vault_path = os.path.join(tmpdir, "vault.json")
-
-            with pytest.warns(VaultPlaintextWarning):
-                vault1 = Vault(file_path=vault_path, master_password=None)
-                vault1.add(PasswordEntry("PlaintextEntry", "user1", "pass1"))
-
-            with open(vault_path, "r") as f:
-                content = f.read()
-                assert "pass1" in content, "Should be plaintext initially"
-
-            # Open with master password and add entry (this migrates to encrypted)
-            vault2 = Vault(file_path=vault_path, master_password="NewMasterPass123!")
-            vault2.add(PasswordEntry("EncryptedEntry", "user2", "pass2"))
-
-            with open(vault_path, "r") as f:
-                content = f.read()
-                data = json.loads(content)
-                assert data.get("encrypted") is True, "Vault should now be encrypted"
-                assert "pass1" not in content, "Old password should be encrypted"
-                assert "pass2" not in content, "New password should be encrypted"
-
-            vault3 = Vault(file_path=vault_path, master_password="NewMasterPass123!")
-            assert vault3.count() == 2
-            assert vault3.get("PlaintextEntry").password == "pass1"
-            assert vault3.get("EncryptedEntry").password == "pass2"
-
-    def test_cannot_read_encrypted_vault_as_plaintext(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            vault_path = os.path.join(tmpdir, "vault.json")
-
-            vault1 = Vault(file_path=vault_path, master_password="Password123!")
-            vault1.add(PasswordEntry("Test", "user", "pass"))
-
-            with pytest.raises(VaultDecryptionError):
-                Vault(file_path=vault_path, master_password=None)
-
-
 class TestEncryptionSecurity:
     def test_same_password_different_encryption_each_time(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -311,20 +257,3 @@ class TestEncryptionSecurity:
 
             with pytest.raises(VaultDecryptionError):
                 Vault(file_path=vault_path, master_password=master_password)
-
-    def test_empty_password_creates_plaintext_vault(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            vault_path = os.path.join(tmpdir, "vault.json")
-
-            with pytest.warns(VaultPlaintextWarning):
-                vault1 = Vault(file_path=vault_path, master_password=None)
-                vault1.add(PasswordEntry("Test", "user", "pass"))
-
-            with open(vault_path, "r") as f:
-                content = f.read()
-                assert "pass" in content, "Should be plaintext"
-
-            # Can be opened without password
-            with pytest.warns(VaultPlaintextWarning):
-                vault2 = Vault(file_path=vault_path, master_password=None)
-                assert vault2.count() == 1

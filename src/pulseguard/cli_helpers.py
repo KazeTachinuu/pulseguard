@@ -1,4 +1,4 @@
-"""Helper functions, enums, and interactive mode for CLI."""
+"""CLI helpers and interactive mode."""
 
 import os
 from enum import Enum
@@ -36,7 +36,7 @@ COMMAND_ALIASES = {
 
 
 def get_help_with_aliases(base_help: str, command_name: str) -> str:
-    """Auto-generate help text with aliases notation."""
+    """Generate help text with aliases."""
     aliases = COMMAND_ALIASES.get(command_name, [])
     if aliases:
         return f"{base_help} [aliases: {', '.join(aliases)}]"
@@ -44,7 +44,7 @@ def get_help_with_aliases(base_help: str, command_name: str) -> str:
 
 
 class MainMenu(str, Enum):
-    """Main interactive menu choices."""
+    """Main menu choices."""
 
     BROWSE_CATEGORY = "Browse by category"
     FIND_ENTRY = "Find entry (quick search)"
@@ -97,16 +97,22 @@ def get_vault() -> Vault:
 
 
 def initialize_vault() -> Vault:
-    """Initialize vault - create new or unlock existing."""
+    """
+    Initialize vault - always requires master password encryption.
+
+    Security: The CLI enforces that all vaults are encrypted with a master password.
+    This is a mandatory security requirement for CLI usage.
+    """
     vault_exists = os.path.exists(config.vault_path)
 
     if not vault_exists:
         try:
             ui.info(f"Creating new vault at {config.vault_path}")
             master_password = prompt_create_master_password()
+            # Security: CLI always creates encrypted vaults
             vault = Vault(master_password=master_password)
             vault._save()
-            ui.success("Vault created successfully")
+            ui.success("Vault created")
             return vault
         except (KeyboardInterrupt, EOFError, ValueError) as e:
             ui.error(f"Vault creation cancelled: {e}")
@@ -118,6 +124,11 @@ def initialize_vault() -> Vault:
         while attempts < max_attempts:
             try:
                 master_password = prompt_unlock_vault()
+                # Security: Ensure password is not empty
+                if not master_password:
+                    ui.error("Password cannot be empty")
+                    attempts += 1
+                    continue
                 vault = Vault(master_password=master_password)
                 ui.success("Vault unlocked")
                 return vault
@@ -137,7 +148,14 @@ def initialize_vault() -> Vault:
 
 
 def prompt_create_master_password() -> str:
-    """Prompt user to create and confirm a master password."""
+    """
+    Prompt for master password creation with confirmation.
+
+    Returns:
+        Non-empty master password string (never None or empty).
+
+    Security: Enforces non-empty password requirement.
+    """
     while True:
         password = getpass("Create master password: ")
         if not password:
@@ -153,12 +171,19 @@ def prompt_create_master_password() -> str:
 
 
 def prompt_unlock_vault() -> str:
-    """Prompt user to unlock vault with master password."""
+    """
+    Prompt for master password to unlock vault.
+
+    Returns:
+        Master password string (may be empty if user presses Enter).
+
+    Note: Empty password validation is handled by the caller (initialize_vault).
+    """
     return getpass("Master password: ")
 
 
 def prompt_and_generate_password() -> Optional[str]:
-    """Interactive password generation."""
+    """Generate password."""
     try:
         length_str = ui.prompt(
             f"Password length (default {DEFAULT_LEN})", default=str(DEFAULT_LEN)
@@ -224,7 +249,7 @@ def display_vault_stats(vault: Vault) -> None:
 
 
 def display_security_health_check(vault: Vault) -> None:
-    """Display security health check results."""
+    """Security health check."""
     duplicates = find_duplicates(vault)
     reused = find_reused_passwords(vault)
 
@@ -251,7 +276,7 @@ def display_security_health_check(vault: Vault) -> None:
 
 
 def interactive_mode() -> None:
-    """Interactive menu for vault operations."""
+    """Interactive mode."""
     from .cli_operations import (
         core_add_entry,
         core_browse_category,

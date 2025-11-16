@@ -1,4 +1,4 @@
-"""Rich UI utilities for beautiful terminal output."""
+"""UI utilities."""
 
 from datetime import datetime
 from enum import Enum
@@ -81,7 +81,7 @@ def prompt(message: str, default: str = "") -> str:
 
 
 def humanize_date(dt: Optional[datetime]) -> str:
-    """Convert datetime to human-readable format like '2d ago'."""
+    """Convert datetime to relative time."""
     if not dt:
         return "—"
 
@@ -115,7 +115,7 @@ def humanize_date(dt: Optional[datetime]) -> str:
 def show_entries_table(
     entries: List[PasswordEntry], title: str = "Password Vault"
 ) -> None:
-    """Display entries in a table format."""
+    """Display entries table."""
     if not entries:
         info("No entries found")
         return
@@ -142,7 +142,7 @@ def show_entries_table(
 
 
 def show_categorized_entries(entries_by_category: dict) -> None:
-    """Display entries grouped by category in a compact format."""
+    """Display entries by category."""
     if not entries_by_category or all(not v for v in entries_by_category.values()):
         info("No entries found")
         return
@@ -190,7 +190,7 @@ def show_categorized_entries(entries_by_category: dict) -> None:
 
 
 def show_entry_panel(entry: PasswordEntry, show_password: bool = False) -> None:
-    """Display single entry in a panel with subtle coloring."""
+    """Display entry details."""
     content = []
 
     # Title
@@ -242,7 +242,7 @@ def show_entry_panel(entry: PasswordEntry, show_password: bool = False) -> None:
 
 
 def show_password_generated(password: str, copied: bool = False) -> None:
-    """Display generated password status (shows password only if clipboard failed)."""
+    """Display generated password."""
     if copied:
         # Password copied - don't display it for security
         success("Password generated and copied to clipboard")
@@ -265,7 +265,7 @@ def select_entry(
     entries: Optional[List[PasswordEntry]] = None,
 ) -> Optional[PasswordEntry]:
     """
-    Interactive entry selector.
+    Select entry.
 
     Args:
         vault: Vault instance
@@ -314,7 +314,7 @@ def select_entry(
 def select_category(
     vault: Optional["Vault"], message: str = "Select category", include_new: bool = True
 ) -> Optional[str]:
-    """Interactive category selector."""
+    """Select category."""
     existing = vault.get_all_categories() if vault else []
     choices = existing.copy()
     if include_new:

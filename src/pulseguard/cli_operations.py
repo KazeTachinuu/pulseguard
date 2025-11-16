@@ -21,7 +21,7 @@ from .vault import Vault
 
 
 def core_add_entry(vault: Vault) -> None:
-    """Core logic for adding an entry - always prompts interactively."""
+    """Add entry."""
     # Always prompt for required fields
     name = ui.prompt("Entry name")
     if not name:
@@ -172,7 +172,7 @@ def show_entry_with_quick_actions(vault: Vault, entry: PasswordEntry) -> bool:
 
 
 def core_get_entry(vault: Vault) -> None:
-    """Core logic for getting/viewing an entry."""
+    """Get entry."""
     entry = select_entry(vault, "Select entry to view")
     if not entry:
         return
@@ -241,7 +241,7 @@ def edit_existing_entry(vault: Vault, entry: PasswordEntry) -> Optional[Password
 
 
 def core_edit_entry(vault: Vault) -> None:
-    """Core logic for editing an entry."""
+    """Edit entry."""
     entry = select_entry(vault, "Select entry to edit", track_access=False)
     if not entry:
         return
@@ -250,7 +250,7 @@ def core_edit_entry(vault: Vault) -> None:
 
 
 def core_delete_entry(vault: Vault) -> None:
-    """Core logic for deleting an entry."""
+    """Delete entry."""
     entry = select_entry(vault, "Select entry to delete")
     if not entry:
         return
@@ -265,7 +265,7 @@ def core_delete_entry(vault: Vault) -> None:
 
 
 def core_list_entries(vault: Vault) -> None:
-    """Core logic for listing entries."""
+    """List entries."""
     entries = vault.get_all()
     ui.show_entries_table(entries)
 
@@ -273,7 +273,7 @@ def core_list_entries(vault: Vault) -> None:
 def core_browse_category(
     vault: Vault, category: Optional[str] = None
 ) -> Optional[PasswordEntry]:
-    """Core logic for browsing entries by category - used by interactive mode."""
+    """Browse entries by category."""
     # Step 1: Select a category if not provided
     if category is None:
         categories = vault.get_all_categories()
@@ -338,7 +338,7 @@ def core_browse_category(
 
 
 def core_list_categories(vault: Vault) -> None:
-    """Core logic for listing all categories with entry counts."""
+    """List categories."""
     categories = vault.get_all_categories()
     if not categories:
         ui.info(Message.NO_CATEGORIES.value)
@@ -356,7 +356,7 @@ def core_list_categories(vault: Vault) -> None:
 
 
 def core_rename_category(vault: Vault) -> None:
-    """Core logic for renaming a category."""
+    """Rename category."""
     categories = vault.get_all_categories()
     if not categories:
         ui.info(Message.NO_CATEGORIES.value)
@@ -414,7 +414,7 @@ def core_rename_category(vault: Vault) -> None:
 
 
 def core_move_entries_to_category(vault: Vault) -> None:
-    """Core logic for moving all entries from one category to another."""
+    """Move entries between categories."""
     categories = vault.get_all_categories()
     if not categories:
         ui.info(Message.NO_CATEGORIES.value)

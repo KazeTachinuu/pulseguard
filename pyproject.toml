@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "pulseguard"
 version = "0.1.0"
-description = "PulseGuard terminal password manager"
+description = "Terminal password manager"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
