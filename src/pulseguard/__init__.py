@@ -1,7 +1,7 @@
 """PulseGuard password manager."""
 
 # Version constants (must be defined before imports to avoid circular dependencies)
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 SCHEMA_VERSION = 1
 
 # ruff: noqa: E402
