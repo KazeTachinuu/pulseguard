@@ -7,10 +7,6 @@ Terminal password manager with encryption and interactive CLI.
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
-## Docs
-
-Docs available at [./docs/]
-
 ## Features
 
 - Argon2 key derivation with AES-256 encryption
@@ -24,7 +20,7 @@ Docs available at [./docs/]
 ## Installation
 
 ```bash
-pip install pulseguard
+pipx install pulseguard
 ```
 
 Or from source:
@@ -88,17 +84,3 @@ Default: `~/.pulseguard/vault.json`
 - File permissions: 0600
 - Master password always required
 - AES-128 (Fernet) encryption for all vault data
-
-## Development
-
-```bash
-uv sync                          # Install dependencies
-./setup-hooks.sh                 # Install git hooks
-uv run pytest                    # Run tests
-uv run ruff check src tests      # Lint
-uv run black src tests           # Format
-```
-
-## License
-
-MIT
