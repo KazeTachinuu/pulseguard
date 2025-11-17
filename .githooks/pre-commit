@@ -5,8 +5,11 @@ set -e
 
 echo "🔍 Running pre-commit checks..."
 
-# Get list of Python files being committed (using array)
-mapfile -t FILES < <(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+# Get list of Python files being committed (compatible with bash 3.2+)
+FILES=()
+while IFS= read -r file; do
+    FILES+=("$file")
+done < <(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
 
 if [ ${#FILES[@]} -eq 0 ]; then
     echo "✓ No Python files to check."
@@ -32,7 +35,10 @@ if ! uv run ruff check --fix "${FILES[@]}"; then
 fi
 
 # 3. Run mypy on source files only
-mapfile -t SRC_FILES < <(printf '%s\n' "${FILES[@]}" | grep '^src/' || true)
+SRC_FILES=()
+while IFS= read -r file; do
+    SRC_FILES+=("$file")
+done < <(printf '%s\n' "${FILES[@]}" | grep '^src/' || true)
 if [ ${#SRC_FILES[@]} -gt 0 ]; then
     echo "🔎 Type checking with mypy..."
     if ! uv run mypy "${SRC_FILES[@]}"; then
