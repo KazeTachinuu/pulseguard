@@ -54,6 +54,44 @@ pulseguard check                 # Security health check
 pulseguard --version             # Show version
 ```
 
+------------------------------------------------------------------------
+
+#### `list` - Lister les mots de passe enregistrés
+
+**Description**
+
+Affiche toutes les entrées enregistrées dans le coffre, avec leur nom et leur identifiant (username).
+
+**Utilisation**
+
+```bash
+pulseguard list
+```
+
+#### `add` - Ajouter une nouvelle entrée
+**Description**
+
+Crée une nouvelle entrée dans le coffre avec un nom, un identifiant (username) et un mot de passe.
+Il est possible d’ajouter en option une URL et une note.
+
+**Options**
+- `<name>`  
+  Nom de l’entrée (identifiant du service).
+- `<username>`  
+  Identifiant ou email associé à l’entrée.
+- `<password>`  
+  Mot de passe associé à l’entrée.
+- `--url <URL>`  
+  URL du service (optionnelle).
+- `--notes <texte>`  
+  Notes ou informations complémentaires (optionnelles).
+---
+
+**Utilisation**
+
+```bash
+pulseguard add <name> <username> <password> [--url URL] [--notes NOTES]
+
 ### Python API
 
 ```python
