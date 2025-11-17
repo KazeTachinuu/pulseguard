@@ -1,5 +1,10 @@
 """PulseGuard password manager."""
 
+# Version constants (must be defined before imports to avoid circular dependencies)
+__version__ = "0.4.0"
+SCHEMA_VERSION = 1
+
+# ruff: noqa: E402
 from .config import config
 from .models import PasswordEntry
 from .vault import (
@@ -14,7 +19,6 @@ from .vault import (
     get_vault_stats,
 )
 
-__version__ = "0.1.0"
 __all__ = [
     "PasswordEntry",
     "Vault",

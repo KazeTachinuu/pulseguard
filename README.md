@@ -2,50 +2,72 @@
 
 Terminal password manager with encryption and interactive CLI.
 
+[![PyPI version](https://badge.fury.io/py/pulseguard.svg)](https://badge.fury.io/py/pulseguard)
+[![Python](https://img.shields.io/pypi/pyversions/pulseguard.svg)](https://pypi.org/project/pulseguard/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 ## Features
 
-- AES-128 (Fernet) + Argon2id key derivation
-- Password generation with `secrets` module
-- Categories, tags, favorites
-- Duplicate and reused password detection
-- Cross-platform clipboard support
-- Access tracking
+- Argon2 key derivation with AES-256 encryption
+- Interactive terminal UI with search
+- Password generator
+- Categories, tags, and favorites
+- Security audit (duplicates, reuse detection)
+- Clipboard support
+- CLI and Python API
 
 ## Installation
 
 ```bash
+pip install pulseguard
+```
+
+Or from source:
+
+```bash
+git clone https://github.com/yourusername/pulseguard.git
+cd pulseguard
 uv sync
 ```
 
 ## Usage
 
+### Interactive Mode
+
 ```bash
-pulseguard          # Interactive mode
-pulseguard list     # List entries
-pulseguard add      # Add entry
-pulseguard get      # Get entry
-pulseguard search   # Search entries
-pulseguard genpass  # Generate password
-pulseguard stats    # Vault stats
-pulseguard check    # Security check
+pulseguard
 ```
 
-## Commands
+### Command Line
 
-| Command | Aliases | Description |
-|---------|---------|-------------|
-| `list` | `ls` | List entries |
-| `add` | `a` | Add entry |
-| `get` | `g` | Get entry |
-| `edit` | `e` | Edit entry |
-| `delete` | `d`, `del` | Delete entry |
-| `search` | `s` | Search entries |
-| `genpass` | `gen` | Generate password |
-| `stats` | | Vault statistics |
-| `check` | | Security check |
-| `categories` | | List categories |
-| `rename-category` | | Rename category |
-| `move-category` | | Move entries |
+```bash
+pulseguard list                  # List passwords
+pulseguard add                   # Add password
+pulseguard get                   # Get password
+pulseguard edit                  # Edit password
+pulseguard delete                # Delete password
+pulseguard search                # Search passwords
+pulseguard genpass               # Generate password
+pulseguard stats                 # Vault statistics
+pulseguard check                 # Security health check
+pulseguard --version             # Show version
+```
+
+### Python API
+
+```python
+from pulseguard import Vault, PasswordEntry
+
+vault = Vault()
+entry = PasswordEntry("Gmail", "user@gmail.com", "password")
+vault.add(entry)
+
+# Get all entries
+entries = vault.get_all()
+
+# Search
+results = vault.search("gmail")
+```
 
 ## Configuration
 
@@ -62,52 +84,16 @@ Default: `~/.pulseguard/vault.json`
 - Master password always required
 - AES-128 (Fernet) encryption for all vault data
 
-## Python API
-
-```python
-from pulseguard import Vault, PasswordEntry
-
-# Create encrypted vault (master password required)
-vault = Vault(master_password="your-master-password")
-entry = PasswordEntry("name", "user", "pass")
-vault.add(entry)
-
-# Search and retrieve
-results = vault.search("query")
-entries = vault.get_all()
-```
-
-**Note**: All vaults are encrypted with AES-128 (Fernet) + Argon2id. Master password is required for all operations.
-
 ## Development
 
 ```bash
-uv sync
-./setup-hooks.sh    # Git hooks for auto-format
-uv run pytest       # Tests
-uv run ruff check src tests
-uv run black src tests
-uv run mypy src
+uv sync                          # Install dependencies
+./setup-hooks.sh                 # Install git hooks
+uv run pytest                    # Run tests
+uv run ruff check src tests      # Lint
+uv run black src tests           # Format
 ```
 
-## Structure
+## License
 
-```
-src/pulseguard/
-├── cli.py              # Typer CLI
-├── cli_helpers.py      # Interactive mode
-├── cli_operations.py   # Command logic
-├── config.py           # Config
-├── crypto.py           # Argon2id + Fernet
-├── models.py           # PasswordEntry
-├── passwordgen.py      # Password generation
-├── ui.py               # Rich UI
-└── vault.py            # Storage
-```
-
-## Dependencies
-
-- Python >=3.11
-- cryptography, argon2-cffi
-- typer, rich, questionary, inquirer
-- pyperclip
+MIT

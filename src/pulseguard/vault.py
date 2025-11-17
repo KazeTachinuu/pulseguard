@@ -8,6 +8,7 @@ import stat
 import tempfile
 from typing import List, Optional
 
+from . import SCHEMA_VERSION, __version__
 from .config import Config, config
 from .crypto import (
     CryptoError,
@@ -72,6 +73,12 @@ class Vault:
         self.entries: List[PasswordEntry] = []
         self._salt: Optional[bytes] = None
         self._dirty = False
+
+        # Version tracking
+        self.schema_version: int = 1
+        self.created_with: Optional[str] = None
+        self.last_modified_with: Optional[str] = None
+
         self._load()
 
     def _load(self) -> None:
@@ -113,6 +120,11 @@ class Vault:
                     f"Vault file is corrupted or invalid: {e}"
                 ) from e
 
+            # Load version metadata (with defaults for backward compatibility)
+            self.schema_version = vault_data.get("schema_version", 1)
+            self.created_with = vault_data.get("created_with")
+            self.last_modified_with = vault_data.get("last_modified_with")
+
             for entry_data in vault_data.get("entries", []):
                 self.entries.append(PasswordEntry.from_dict(entry_data))
 
@@ -125,7 +137,19 @@ class Vault:
         """Save and encrypt entries to JSON file with atomic write."""
         config.ensure_vault_dir()
 
-        vault_data = {"entries": [entry.to_dict() for entry in self.entries]}
+        # Set created_with on first save
+        if self.created_with is None:
+            self.created_with = __version__
+
+        # Always update last_modified_with
+        self.last_modified_with = __version__
+
+        vault_data = {
+            "schema_version": SCHEMA_VERSION,
+            "created_with": self.created_with,
+            "last_modified_with": self.last_modified_with,
+            "entries": [entry.to_dict() for entry in self.entries],
+        }
         json_content = json.dumps(vault_data, indent=2)
 
         # Create temp file in same directory for atomic move

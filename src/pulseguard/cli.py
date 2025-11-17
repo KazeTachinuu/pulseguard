@@ -7,7 +7,7 @@ from typing import Optional
 import typer
 from typing_extensions import Annotated
 
-from . import ui
+from . import __version__, ui
 from .cli_helpers import (
     COMMAND_ALIASES,
     display_security_health_check,
@@ -38,6 +38,13 @@ app = typer.Typer(
 )
 
 
+def version_callback(value: bool):
+    """Print version and exit."""
+    if value:
+        typer.echo(f"pulseguard {__version__}")
+        raise typer.Exit()
+
+
 @app.callback(invoke_without_command=True)
 def main_callback(
     ctx: typer.Context,
@@ -47,6 +54,16 @@ def main_callback(
             "--vault",
             "-v",
             help="Path to vault file (default: ~/.pulseguard/vault.json)",
+        ),
+    ] = None,
+    version: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--version",
+            "-V",
+            callback=version_callback,
+            is_eager=True,
+            help="Show version and exit",
         ),
     ] = None,
 ):

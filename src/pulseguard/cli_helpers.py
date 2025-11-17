@@ -10,7 +10,7 @@ import questionary
 import typer
 from rich.prompt import Confirm
 
-from . import ui
+from . import __version__, ui
 from .config import config
 from .models import PasswordEntry
 from .passwordgen import DEFAULT_LEN, GenOptions, copy_to_clipboard, generate_password
@@ -243,9 +243,49 @@ def display_vault_stats(vault: Vault) -> None:
     """Display vault statistics."""
     stats = get_vault_stats(vault)
     ui.console.print("\n[bold cyan]Vault Statistics[/bold cyan]\n")
+
+    # Version information
+    ui.console.print(f"[dim]Vault schema version: {vault.schema_version}[/dim]")
+    if vault.created_with:
+        ui.console.print(f"[dim]Created with: v{vault.created_with}[/dim]")
+    if vault.last_modified_with:
+        ui.console.print(f"[dim]Last modified with: v{vault.last_modified_with}[/dim]")
+    ui.console.print()
+
+    # Entry statistics
     ui.console.print(f"Total entries: {stats['total']}")
     ui.console.print(f"Duplicate entries: {stats['duplicates']}")
     ui.console.print(f"Reused passwords: {stats['reused']}\n")
+
+
+def display_welcome_banner(vault: Vault) -> None:
+    """Display welcome banner with version information."""
+    from rich.panel import Panel
+    from rich.table import Table
+
+    # Create version info table
+    table = Table(show_header=False, box=None, padding=(0, 1))
+    table.add_column(style="dim")
+    table.add_column()
+
+    table.add_row("PulseGuard", f"v{__version__}")
+    if vault.created_with or vault.last_modified_with:
+        table.add_row("", "")  # Spacer
+        if vault.created_with:
+            table.add_row("Vault created with", f"v{vault.created_with}")
+        if vault.last_modified_with and vault.last_modified_with != vault.created_with:
+            table.add_row("Last modified with", f"v{vault.last_modified_with}")
+
+    entries_count = len(vault.get_all())
+    table.add_row("", "")  # Spacer
+    table.add_row("Entries", str(entries_count))
+
+    panel = Panel(
+        table,
+        title="[bold cyan]PulseGuard Password Manager[/bold cyan]",
+        border_style="cyan",
+    )
+    ui.console.print(panel)
 
 
 def display_security_health_check(vault: Vault) -> None:
@@ -287,6 +327,7 @@ def interactive_mode() -> None:
     )
 
     vault = get_vault()
+    display_welcome_banner(vault)
 
     while True:
         ui.console.print()
