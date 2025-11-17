@@ -25,7 +25,7 @@ pip install pulseguard
 Or from source:
 
 ```bash
-git clone https://github.com/yourusername/pulseguard.git
+git clone https://github.com/KazeTachinuu/pulseguard.git
 cd pulseguard
 uv sync
 ```
