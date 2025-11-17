@@ -54,6 +54,17 @@ def core_add_entry(vault: Vault) -> None:
             ui.info(Message.CANCELLED.value)
             return
 
+        password_chars = len(password)
+        password_bytes = len(password.encode("utf-8"))
+
+        if password_chars > Config.MAX_PASSWORD_LENGTH:
+            ui.error(f"Password cannot exceed {Config.MAX_PASSWORD_LENGTH} characters")
+            return
+
+        if password_bytes > Config.MAX_PASSWORD_BYTES:
+            ui.error(f"Password size cannot exceed {Config.MAX_PASSWORD_BYTES} bytes")
+            return
+
     # Optional fields
     url = ui.prompt("URL (optional)", "")
     notes = ui.prompt("Notes (optional)", "")
@@ -205,6 +216,7 @@ def edit_existing_entry(vault: Vault, entry: PasswordEntry) -> Optional[Password
         new_category = current_category
 
     # Handle password change
+    password_validation_failed = False
     if ui.confirm("Change password?", default=False):
         if ui.confirm("Generate new password?", default=True):
             new_password = prompt_and_generate_password()
@@ -216,6 +228,22 @@ def edit_existing_entry(vault: Vault, entry: PasswordEntry) -> Optional[Password
             ).ask()
             if new_password is None:
                 new_password = entry.password  # Keep old password if cancelled
+            else:
+                password_chars = len(new_password)
+                password_bytes = len(new_password.encode("utf-8"))
+
+                if password_chars > Config.MAX_PASSWORD_LENGTH:
+                    ui.error(
+                        f"Password cannot exceed {Config.MAX_PASSWORD_LENGTH} characters"
+                    )
+                    new_password = entry.password  # Keep old password if too long
+                    password_validation_failed = True
+                elif password_bytes > Config.MAX_PASSWORD_BYTES:
+                    ui.error(
+                        f"Password size cannot exceed {Config.MAX_PASSWORD_BYTES} bytes"
+                    )
+                    new_password = entry.password  # Keep old password if too long
+                    password_validation_failed = True
     else:
         new_password = entry.password
 
@@ -227,7 +255,12 @@ def edit_existing_entry(vault: Vault, entry: PasswordEntry) -> Optional[Password
         category=new_category,
     )
     vault.add(updated_entry)
-    ui.success(f"Updated entry '{entry.name}'")
+    if password_validation_failed:
+        ui.success(
+            f"Updated entry '{entry.name}' (password unchanged due to validation error)"
+        )
+    else:
+        ui.success(f"Updated entry '{entry.name}'")
 
     # Return refreshed entry
     return vault.get(entry.name, track_access=False)
