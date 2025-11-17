@@ -5,17 +5,10 @@ on:
     types: [published]
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
-  publish:
-    name: Build and publish to PyPI
+  build:
+    name: Build distribution
     runs-on: ubuntu-latest
-    environment: testpypi
-    permissions:
-      id-token: write
-
     steps:
     - uses: actions/checkout@v4
 
@@ -30,5 +23,28 @@ jobs:
     - name: Build package
       run: uv build
 
-    - name: Publish to PyPI
+    - name: Upload distributions
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist
+        path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+
+    steps:
+    - name: Download distributions
+      uses: actions/download-artifact@v4
+      with:
+        name: dist
+        path: dist/
+
+    - name: Publish to TestPyPI
       uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
