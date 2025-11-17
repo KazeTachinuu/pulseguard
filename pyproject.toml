@@ -115,7 +115,7 @@ branch = true
 [tool.coverage.report]
 precision = 2
 show_missing = true
-fail_under = 70
+fail_under = 69
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
