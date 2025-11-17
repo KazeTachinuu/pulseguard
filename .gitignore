@@ -54,3 +54,7 @@ Thumbs.db
 htmlcov/
 coverage.xml
 junit.xml
+
+
+
+*.pdf
