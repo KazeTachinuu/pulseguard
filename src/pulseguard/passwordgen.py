@@ -18,7 +18,7 @@ except Exception:
 
 
 SYMBOLS = "!@#$%^&*()-_=+[]{};:,.?/"
-MAX_LEN = 25
+MAX_LEN = 128  # Maximum password length (aligned with Config.MAX_PASSWORD_LENGTH)
 DEFAULT_LEN = 16
 CLIPBOARD_TIMEOUT_SECONDS = 30
 MIN_LEN = 8
@@ -54,6 +54,11 @@ def enforce_limits(length: int, opts: GenOptions) -> int:
     """Validate password length against enabled character classes."""
     if length < 1:
         raise ValueError("Password length must be at least 1.")
+
+    if length > MAX_LEN:
+        raise ValueError(
+            f"Password length ({length}) exceeds maximum allowed length ({MAX_LEN} characters)."
+        )
 
     # Count required characters (one per enabled class)
     required_chars = sum([opts.lower, opts.upper, opts.digits, opts.symbols])

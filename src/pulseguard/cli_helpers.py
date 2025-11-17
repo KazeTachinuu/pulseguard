@@ -126,6 +126,24 @@ def initialize_vault() -> Vault:
                     ui.error("Password cannot be empty")
                     attempts += 1
                     continue
+
+                # Security: Ensure password length is within limits
+                password_chars = len(master_password)
+                password_bytes = len(master_password.encode("utf-8"))
+
+                if password_chars > Config.MAX_PASSWORD_LENGTH:
+                    ui.error(
+                        f"Password cannot exceed {Config.MAX_PASSWORD_LENGTH} characters"
+                    )
+                    attempts += 1
+                    continue
+
+                if password_bytes > Config.MAX_PASSWORD_BYTES:
+                    ui.error(
+                        f"Password size cannot exceed {Config.MAX_PASSWORD_BYTES} bytes"
+                    )
+                    attempts += 1
+                    continue
                 vault = Vault(master_password=master_password)
                 ui.success("Vault unlocked")
                 return vault
@@ -183,6 +201,17 @@ def prompt_create_master_password() -> str:
             raise typer.Exit(1)
         if not password:
             ui.error("Password cannot be empty")
+            continue
+
+        password_chars = len(password)
+        password_bytes = len(password.encode("utf-8"))
+
+        if password_chars > Config.MAX_PASSWORD_LENGTH:
+            ui.error(f"Password cannot exceed {Config.MAX_PASSWORD_LENGTH} characters")
+            continue
+
+        if password_bytes > Config.MAX_PASSWORD_BYTES:
+            ui.error(f"Password size cannot exceed {Config.MAX_PASSWORD_BYTES} bytes")
             continue
 
         confirm = questionary.password(
@@ -273,10 +302,14 @@ def prompt_and_generate_password() -> Optional[str]:
         opts = GenOptions(
             length=length, lower=lower, upper=upper, digits=digits, symbols=symbols
         )
-        password = generate_password(opts)
-        copied = copy_to_clipboard_with_autoclear(password)
-        ui.show_password_generated(password, copied)
-        return password
+        try:
+            password = generate_password(opts)
+            copied = copy_to_clipboard_with_autoclear(password)
+            ui.show_password_generated(password, copied)
+            return password
+        except ValueError as e:
+            ui.error(str(e))
+            return None
 
     except (KeyboardInterrupt, EOFError):
         ui.info("\nCancelled")

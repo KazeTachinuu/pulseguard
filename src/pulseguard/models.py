@@ -31,12 +31,28 @@ class PasswordEntry:
     access_count: int = 0
 
     def __post_init__(self):
-        """Set timestamps if not provided."""
+        """Set timestamps if not provided and validate password length."""
         now = datetime.now(timezone.utc)
         if self.created_at is None:
             self.created_at = now
         if self.updated_at is None:
             self.updated_at = now
+
+        # Validate password length - strictly enforced for all passwords
+        password_chars = len(self.password)
+        password_bytes = len(self.password.encode("utf-8"))
+
+        if password_chars > Config.MAX_PASSWORD_LENGTH:
+            raise ValueError(
+                f"Password length ({password_chars} characters) exceeds maximum allowed "
+                f"({Config.MAX_PASSWORD_LENGTH} characters)"
+            )
+
+        if password_bytes > Config.MAX_PASSWORD_BYTES:
+            raise ValueError(
+                f"Password size ({password_bytes} bytes) exceeds maximum allowed "
+                f"({Config.MAX_PASSWORD_BYTES} bytes)"
+            )
 
     def mark_accessed(self) -> None:
         """Update access tracking when entry is retrieved."""

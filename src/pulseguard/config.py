@@ -13,6 +13,8 @@ class Config:
 
     # Security constants
     MAX_PASSWORD_ATTEMPTS = 3
+    MAX_PASSWORD_LENGTH = 128  # Maximum character count
+    MAX_PASSWORD_BYTES = 512  # Maximum byte length (UTF-8 encoded)
 
     # Display constants
     MAX_RECENT_ENTRIES = 5

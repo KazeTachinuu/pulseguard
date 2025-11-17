@@ -24,7 +24,7 @@ packages = ["src/pulseguard"]
 
 [project]
 name = "pulseguard"
-version = "0.5.0"
+version = "0.5.1"
 description = "Secure terminal-based password manager with encryption and interactive CLI"
 readme = "README.md"
 requires-python = ">=3.11"
