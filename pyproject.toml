@@ -95,9 +95,15 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-q"
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = "-ra --strict-markers"
+
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "e2e: End-to-end tests",
+]
 
 [tool.coverage.run]
 source = ["src/pulseguard"]
@@ -116,6 +122,7 @@ branch = true
 precision = 2
 show_missing = true
 fail_under = 69
+
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",

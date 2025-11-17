@@ -1,12 +1,6 @@
 # PulseGuard
 
 Terminal password manager with encryption and interactive CLI.
-
-[![PyPI version](https://badge.fury.io/py/pulseguard.svg)](https://badge.fury.io/py/pulseguard)
-[![Python](https://img.shields.io/pypi/pyversions/pulseguard.svg)](https://pypi.org/project/pulseguard/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-
 ## Features
 
 - Argon2 key derivation with AES-256 encryption
