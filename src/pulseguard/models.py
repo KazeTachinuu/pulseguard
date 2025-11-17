@@ -81,3 +81,18 @@ class PasswordEntry:
         data.setdefault("access_count", 0)
 
         return cls(**data)
+
+    def copy_with_updates(self, **updates) -> "PasswordEntry":
+        """Create a new entry with updated fields, preserving unchanged ones."""
+        data = {
+            "name": self.name,
+            "username": self.username,
+            "password": self.password,
+            "url": self.url,
+            "notes": self.notes,
+            "category": self.category,
+            "tags": self.tags.copy(),  # Deep copy to avoid shared mutable state
+            "favorite": self.favorite,
+        }
+        data.update(updates)
+        return PasswordEntry(**data)  # type: ignore[arg-type]

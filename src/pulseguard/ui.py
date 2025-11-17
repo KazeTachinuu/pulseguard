@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, List, Optional
 import questionary
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from .config import Config
@@ -65,51 +64,50 @@ def warning(message: str) -> None:
 
 def confirm(message: str, default: bool = False) -> bool:
     """Ask for confirmation."""
-    return Confirm.ask(message, default=default)
+    result = questionary.confirm(message, default=default, style=select_style).ask()
+    return result if result is not None else False
 
 
 def prompt(message: str, default: str = "") -> str:
     """Prompt for input with optional default."""
     try:
-        if default:
-            result = Prompt.ask(message, default=default)
-        else:
-            result = Prompt.ask(message)
+        result = questionary.text(message, default=default, style=select_style).ask()
         return result if result is not None else ""
     except (KeyboardInterrupt, EOFError):
         return ""
 
 
 def humanize_date(dt: Optional[datetime]) -> str:
-    """Convert datetime to relative time."""
+    """Format datetime as absolute timestamp."""
     if not dt:
         return "—"
 
-    # Use timezone-aware now if dt is aware, else naive
-    now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
-    diff = now - dt
-
-    # Handle future dates (clock skew or data issues)
-    if diff.days < 0 or diff.total_seconds() < 0:
-        return "just now"
-
-    if diff.days == 0:
-        hours = diff.seconds // 3600
-        if hours == 0:
-            minutes = diff.seconds // 60
-            return f"{minutes}m ago" if minutes > 0 else "just now"
-        return f"{hours}h ago"
-    elif diff.days < 7:
-        return f"{diff.days}d ago"
-    elif diff.days < 30:
-        weeks = diff.days // 7
-        return f"{weeks}w ago"
-    elif diff.days < 365:
-        months = diff.days // 30
-        return f"{months}mo ago"
+    # Convert to local time for display
+    if dt.tzinfo:
+        # Convert UTC to local time
+        local_dt = dt.astimezone()
     else:
-        years = diff.days // 365
-        return f"{years}y ago"
+        local_dt = dt
+
+    # Format as "YYYY-MM-DD HH:MM"
+    return local_dt.strftime("%Y-%m-%d %H:%M")
+
+
+def copy_with_feedback(text: str, label: str = "Text") -> bool:
+    """Copy text to clipboard and show feedback message."""
+    from .passwordgen import CLIPBOARD_TIMEOUT_SECONDS, copy_to_clipboard_with_autoclear
+
+    if copy_to_clipboard_with_autoclear(text):
+        success(f"{label} copied (clears in {CLIPBOARD_TIMEOUT_SECONDS}s)")
+        return True
+    else:
+        warning("Clipboard unavailable")
+        return False
+
+
+def copy_password_with_feedback(password: str) -> bool:
+    """Copy password to clipboard and show feedback message."""
+    return copy_with_feedback(password, "Password")
 
 
 def show_entries_table(
@@ -139,54 +137,6 @@ def show_entries_table(
 
     console.print(table)
     console.print(f"[dim]Total: {len(entries)} entries[/dim]")
-
-
-def show_categorized_entries(entries_by_category: dict) -> None:
-    """Display entries by category."""
-    if not entries_by_category or all(not v for v in entries_by_category.values()):
-        info("No entries found")
-        return
-
-    console.print()
-
-    from .vault import sort_categories_uncategorized_last
-
-    categories = sort_categories_uncategorized_last(list(entries_by_category.keys()))
-
-    total_count = sum(len(entries) for entries in entries_by_category.values())
-
-    for category in categories:
-        entries = entries_by_category[category]
-        if not entries:
-            continue
-
-        # Category header - simple and clean
-        console.print(f"\n[cyan]{category}[/cyan] [dim]({len(entries)})[/dim]")
-
-        # List entries in category - one line each
-        for entry in sorted(entries, key=lambda e: e.name.lower()):
-            # Build single line display
-            parts = []
-
-            # Name (with favorite marker if needed)
-            if entry.favorite:
-                parts.append(f"[bold]★ {entry.name}[/bold]")
-            else:
-                parts.append(f"{entry.name}")
-
-            # Username
-            parts.append(f"[dim]{entry.username}[/dim]")
-
-            # URL (optional, truncated)
-            if entry.url:
-                url_display = (
-                    entry.url if len(entry.url) <= 35 else entry.url[:32] + "..."
-                )
-                parts.append(f"[blue dim]{url_display}[/blue dim]")
-
-            console.print(f"  {' · '.join(parts)}")
-
-    console.print(f"\n[dim]Total: {total_count} entries[/dim]\n")
 
 
 def show_entry_panel(entry: PasswordEntry, show_password: bool = False) -> None:
@@ -243,9 +193,13 @@ def show_entry_panel(entry: PasswordEntry, show_password: bool = False) -> None:
 
 def show_password_generated(password: str, copied: bool = False) -> None:
     """Display generated password."""
+    from .passwordgen import CLIPBOARD_TIMEOUT_SECONDS
+
     if copied:
         # Password copied - don't display it for security
-        success("Password generated and copied to clipboard")
+        success(
+            f"Password generated and copied (clears in {CLIPBOARD_TIMEOUT_SECONDS}s)"
+        )
     else:
         # Clipboard failed - must show password so user can copy manually
         warning("Clipboard unavailable - password shown below:")

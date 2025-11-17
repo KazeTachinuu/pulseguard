@@ -1,20 +1,22 @@
 """CLI helpers and interactive mode."""
 
-import os
 from enum import Enum
-from getpass import getpass
+from pathlib import Path
 from typing import Optional
 
 import inquirer  # type: ignore[import-untyped]
 import questionary
 import typer
-from rich.prompt import Confirm
 
 from . import __version__, ui
-from .config import config
-from .models import PasswordEntry
-from .passwordgen import DEFAULT_LEN, GenOptions, copy_to_clipboard, generate_password
-from .ui import UIPrompt, select_entry, select_style
+from .config import Config, config
+from .passwordgen import (
+    DEFAULT_LEN,
+    GenOptions,
+    copy_to_clipboard_with_autoclear,
+    generate_password,
+)
+from .ui import UIPrompt, select_style
 from .vault import (
     Vault,
     VaultDecryptionError,
@@ -33,14 +35,6 @@ COMMAND_ALIASES = {
     "search": ["s"],
     "genpass": ["gen"],
 }
-
-
-def get_help_with_aliases(base_help: str, command_name: str) -> str:
-    """Generate help text with aliases."""
-    aliases = COMMAND_ALIASES.get(command_name, [])
-    if aliases:
-        return f"{base_help} [aliases: {', '.join(aliases)}]"
-    return base_help
 
 
 class MainMenu(str, Enum):
@@ -103,7 +97,7 @@ def initialize_vault() -> Vault:
     Security: The CLI enforces that all vaults are encrypted with a master password.
     This is a mandatory security requirement for CLI usage.
     """
-    vault_exists = os.path.exists(config.vault_path)
+    vault_exists = Path(config.vault_path).exists()
 
     if not vault_exists:
         try:
@@ -119,11 +113,14 @@ def initialize_vault() -> Vault:
             raise typer.Exit(1)
     else:
         attempts = 0
-        max_attempts = 3
 
-        while attempts < max_attempts:
+        while attempts < Config.MAX_PASSWORD_ATTEMPTS:
             try:
-                master_password = prompt_unlock_vault()
+                master_password = prompt_unlock_vault()  # type: ignore[assignment]
+                # User cancelled the prompt
+                if master_password is None:
+                    ui.error("Vault unlock cancelled")
+                    raise typer.Exit(1)
                 # Security: Ensure password is not empty
                 if not master_password:
                     ui.error("Password cannot be empty")
@@ -134,7 +131,7 @@ def initialize_vault() -> Vault:
                 return vault
             except VaultDecryptionError:
                 attempts += 1
-                remaining = max_attempts - attempts
+                remaining = Config.MAX_PASSWORD_ATTEMPTS - attempts
                 if remaining > 0:
                     ui.error(f"Incorrect password ({remaining} attempts remaining)")
                 else:
@@ -156,13 +153,43 @@ def prompt_create_master_password() -> str:
 
     Security: Enforces non-empty password requirement.
     """
+    from rich.panel import Panel
+    from rich.text import Text
+
+    # Show informative panel
+    content = Text()
+    content.append("Creating new vault\n\n", style="bold cyan")
+    content.append("Location: ", style="dim")
+    content.append(f"{config.vault_path}\n\n", style="white")
+    content.append("Your master password will encrypt all entries.\n", style="dim")
+    content.append(
+        "Choose a strong, memorable password - you cannot recover it if lost.",
+        style="yellow",
+    )
+
+    panel = Panel(
+        content,
+        border_style="cyan",
+        padding=(1, 2),
+    )
+    ui.console.print(panel)
+    ui.console.print()
+
     while True:
-        password = getpass("Create master password: ")
+        password = questionary.password(
+            "Create master password:", style=ui.select_style
+        ).ask()
+        if password is None:
+            raise typer.Exit(1)
         if not password:
             ui.error("Password cannot be empty")
             continue
 
-        confirm = getpass("Confirm master password: ")
+        confirm = questionary.password(
+            "Confirm master password:", style=ui.select_style
+        ).ask()
+        if confirm is None:
+            raise typer.Exit(1)
         if password != confirm:
             ui.error("Passwords don't match. Try again.")
             continue
@@ -170,16 +197,34 @@ def prompt_create_master_password() -> str:
         return password
 
 
-def prompt_unlock_vault() -> str:
+def prompt_unlock_vault() -> Optional[str]:
     """
     Prompt for master password to unlock vault.
 
     Returns:
-        Master password string (may be empty if user presses Enter).
+        Master password string, or None if cancelled.
 
     Note: Empty password validation is handled by the caller (initialize_vault).
     """
-    return getpass("Master password: ")
+    from rich.panel import Panel
+    from rich.text import Text
+
+    # Show vault info panel
+    content = Text()
+    content.append("Unlocking vault\n\n", style="bold cyan")
+    content.append("Location: ", style="dim")
+    content.append(f"{config.vault_path}", style="white")
+
+    panel = Panel(
+        content,
+        border_style="cyan",
+        padding=(1, 2),
+    )
+    ui.console.print(panel)
+    ui.console.print()
+
+    result = questionary.password("Master password:", style=ui.select_style).ask()
+    return result if result is not None else None  # Return None if cancelled
 
 
 def prompt_and_generate_password() -> Optional[str]:
@@ -190,7 +235,7 @@ def prompt_and_generate_password() -> Optional[str]:
         )
         length = int(length_str) if length_str else DEFAULT_LEN
 
-        # Clean checkbox selection using inquirer - space to toggle
+        # Checkbox selection using inquirer
         questions = [
             inquirer.Checkbox(
                 "char_types",
@@ -210,7 +255,6 @@ def prompt_and_generate_password() -> Optional[str]:
             ui.error("At least one character type must be selected")
             return None
 
-        # Convert to boolean flags
         selected = answers["char_types"]
         lower = "lower" in selected
         upper = "upper" in selected
@@ -230,7 +274,7 @@ def prompt_and_generate_password() -> Optional[str]:
             length=length, lower=lower, upper=upper, digits=digits, symbols=symbols
         )
         password = generate_password(opts)
-        copied = copy_to_clipboard(password)
+        copied = copy_to_clipboard_with_autoclear(password)
         ui.show_password_generated(password, copied)
         return password
 
@@ -241,21 +285,57 @@ def prompt_and_generate_password() -> Optional[str]:
 
 def display_vault_stats(vault: Vault) -> None:
     """Display vault statistics."""
+    from rich.panel import Panel
+    from rich.table import Table
+
     stats = get_vault_stats(vault)
-    ui.console.print("\n[bold cyan]Vault Statistics[/bold cyan]\n")
+
+    # Create stats table
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_column(style="cyan", ratio=1)
+    table.add_column(ratio=1)
 
     # Version information
-    ui.console.print(f"[dim]Vault schema version: {vault.schema_version}[/dim]")
+    table.add_row("Schema version", str(vault.schema_version))
     if vault.created_with:
-        ui.console.print(f"[dim]Created with: v{vault.created_with}[/dim]")
+        table.add_row("Created with", f"v{vault.created_with}")
     if vault.last_modified_with:
-        ui.console.print(f"[dim]Last modified with: v{vault.last_modified_with}[/dim]")
-    ui.console.print()
+        table.add_row("Last modified", f"v{vault.last_modified_with}")
+
+    # Add separator
+    table.add_row("", "")
 
     # Entry statistics
-    ui.console.print(f"Total entries: {stats['total']}")
-    ui.console.print(f"Duplicate entries: {stats['duplicates']}")
-    ui.console.print(f"Reused passwords: {stats['reused']}\n")
+    table.add_row("Total entries", str(stats["total"]))
+    table.add_row("Duplicates", str(stats["duplicates"]))
+    table.add_row("Reused passwords", str(stats["reused"]))
+
+    panel = Panel(
+        table,
+        title="[bold cyan]Vault Statistics[/bold cyan]",
+        border_style="cyan",
+        padding=(1, 2),
+    )
+    ui.console.print()
+    ui.console.print(panel)
+
+
+def _get_security_status(duplicates: int, reused: int) -> tuple[str, str]:
+    """Get security status text and border color."""
+    total_issues = duplicates + reused
+    if total_issues == 0:
+        return "[green]✓ No issues[/green]", "green"
+
+    issues = []
+    if duplicates:
+        plural = "s" if duplicates > 1 else ""
+        issues.append(f"{duplicates} duplicate{plural}")
+    if reused:
+        issues.append(f"{reused} reused")
+
+    status_text = f"⚠ {', '.join(issues)}"
+    color = "yellow" if total_issues <= 2 else "red"
+    return f"[{color}]{status_text}[/{color}]", color
 
 
 def display_welcome_banner(vault: Vault) -> None:
@@ -263,56 +343,87 @@ def display_welcome_banner(vault: Vault) -> None:
     from rich.panel import Panel
     from rich.table import Table
 
-    # Create version info table
-    table = Table(show_header=False, box=None, padding=(0, 1))
-    table.add_column(style="dim")
-    table.add_column()
+    # Get stats
+    stats = get_vault_stats(vault)
+    security_status, border_color = _get_security_status(
+        stats["duplicates"], stats["reused"]
+    )
 
-    table.add_row("PulseGuard", f"v{__version__}")
-    if vault.created_with or vault.last_modified_with:
-        table.add_row("", "")  # Spacer
-        if vault.created_with:
-            table.add_row("Vault created with", f"v{vault.created_with}")
-        if vault.last_modified_with and vault.last_modified_with != vault.created_with:
-            table.add_row("Last modified with", f"v{vault.last_modified_with}")
+    # Create table
+    table = Table(show_header=False, box=None, padding=(0, 2), expand=True)
+    table.add_column(style="dim", ratio=1)
+    table.add_column(ratio=1)
+    table.add_column(style="dim", ratio=1)
+    table.add_column(ratio=2)
 
-    entries_count = len(vault.get_all())
-    table.add_row("", "")  # Spacer
-    table.add_row("Entries", str(entries_count))
+    # Add rows
+    table.add_row("PulseGuard", f"v{__version__}", "Vault path", vault.file_path)
+    table.add_row(
+        "Created with" if vault.created_with else "",
+        f"v{vault.created_with}" if vault.created_with else "",
+        "Entries",
+        str(stats["total"]),
+    )
+    table.add_row(
+        "Favorites", str(len(vault.get_favorites())), "Security", security_status
+    )
+    if vault.last_modified_with and vault.last_modified_with != vault.created_with:
+        table.add_row("Last modified", f"v{vault.last_modified_with}", "", "")
 
     panel = Panel(
         table,
         title="[bold cyan]PulseGuard Password Manager[/bold cyan]",
-        border_style="cyan",
+        border_style=border_color,
+        expand=True,
+        padding=(1, 2),
     )
     ui.console.print(panel)
 
 
 def display_security_health_check(vault: Vault) -> None:
     """Security health check."""
+    from rich.panel import Panel
+    from rich.table import Table
+
     duplicates = find_duplicates(vault)
     reused = find_reused_passwords(vault)
 
-    ui.console.print("\n[bold cyan]Security Health Check[/bold cyan]\n")
+    if not duplicates and not reused:
+        panel = Panel(
+            "[green]✓ No security issues found[/green]",
+            title="[bold cyan]Security Health Check[/bold cyan]",
+            border_style="green",
+            padding=(1, 2),
+        )
+        ui.console.print()
+        ui.console.print(panel)
+        return
+
+    # Create issues table
+    table = Table(show_header=True, box=None, padding=(0, 2))
+    table.add_column("Issue Type", style="yellow", no_wrap=True)
+    table.add_column("Details", style="white")
 
     if duplicates:
-        ui.console.print("[yellow]Duplicate entries found:[/yellow]")
         for key, entries in duplicates:
-            ui.console.print(f"  {key}:")
-            for entry in entries:
-                ui.console.print(f"    - {entry.name}")
-        ui.console.print()
+            entry_names = ", ".join(e.name for e in entries)
+            table.add_row("Duplicate", f"{key}\n  → {entry_names}")
 
     if reused:
-        ui.console.print("[yellow]Reused passwords found:[/yellow]")
-        for password_hash, entries in reused:
-            ui.console.print(f"  Password used in {len(entries)} entries:")
-            for entry in entries:
-                ui.console.print(f"    - {entry.name}")
-        ui.console.print()
+        for count, entries in reused:
+            entry_names = ", ".join(e.name for e in entries)
+            table.add_row(
+                "Reused password", f"Used in {len(entries)} entries\n  → {entry_names}"
+            )
 
-    if not duplicates and not reused:
-        ui.console.print("[green]✓ No security issues found[/green]\n")
+    panel = Panel(
+        table,
+        title="[bold cyan]Security Health Check[/bold cyan]",
+        border_style="yellow",
+        padding=(1, 2),
+    )
+    ui.console.print()
+    ui.console.print(panel)
 
 
 def interactive_mode() -> None:
@@ -323,7 +434,7 @@ def interactive_mode() -> None:
         core_list_categories,
         core_move_entries_to_category,
         core_rename_category,
-        show_entry_with_quick_actions,
+        select_and_show_entry,
     )
 
     vault = get_vault()
@@ -369,56 +480,27 @@ def interactive_mode() -> None:
 
         try:
             if choice and choice.startswith("Favorites"):
-                entry = select_entry(vault, "Select favorite entry", entries=favorites)
-                if entry:
-                    if copy_to_clipboard(entry.password):
-                        ui.success("Password copied to clipboard")
-                    else:
-                        ui.warning("Clipboard unavailable")
-                    show_entry_with_quick_actions(vault, entry)
+                select_and_show_entry(vault, "Select favorite entry", entries=favorites)
 
             elif choice and choice.startswith("Recently used"):
-                entry = select_entry(vault, "Select recent entry", entries=recent)
-                if entry:
-                    if copy_to_clipboard(entry.password):
-                        ui.success("Password copied to clipboard")
-                    else:
-                        ui.warning("Clipboard unavailable")
-                    show_entry_with_quick_actions(vault, entry)
+                select_and_show_entry(vault, "Select recent entry", entries=recent)
 
             elif choice == MainMenu.BROWSE_CATEGORY.value:
                 entry = core_browse_category(vault)
                 if entry:
-                    if copy_to_clipboard(entry.password):
-                        ui.success("Password copied to clipboard")
-                    else:
-                        ui.warning("Clipboard unavailable")
+                    ui.copy_password_with_feedback(entry.password)
+                    from .cli_operations import show_entry_with_quick_actions
+
                     show_entry_with_quick_actions(vault, entry)
 
             elif choice == MainMenu.FIND_ENTRY.value:
-                entry = select_entry(vault, "Type to search, or select entry")
-                if entry:
-                    if copy_to_clipboard(entry.password):
-                        ui.success("Password copied to clipboard")
-                    else:
-                        ui.warning("Clipboard unavailable")
-                    show_entry_with_quick_actions(vault, entry)
+                select_and_show_entry(vault, "Type to search, or select entry")
 
             elif choice == MainMenu.ADD_ENTRY.value:
                 core_add_entry(vault)
 
             elif choice == MainMenu.GENERATE_PASSWORD.value:
-                password = prompt_and_generate_password()
-                if password and Confirm.ask("Save this password as a new entry?", default=True):  # type: ignore[arg-type]
-                    entry = PasswordEntry(
-                        name=ui.prompt("Entry name"),
-                        username=ui.prompt("Username"),
-                        password=password,
-                        url=ui.prompt("URL (optional)", ""),
-                        notes=ui.prompt("Notes (optional)", ""),
-                    )
-                    vault.add(entry)
-                    ui.success(f"Saved entry '{entry.name}'")
+                prompt_and_generate_password()
 
             elif choice == MainMenu.MANAGE_CATEGORIES.value:
                 while True:

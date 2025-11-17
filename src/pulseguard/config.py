@@ -11,6 +11,13 @@ class Config:
     VAULT_PATH_ENV = "PULSEGUARD_VAULT_PATH"
     DEFAULT_CATEGORY = "Uncategorized"
 
+    # Security constants
+    MAX_PASSWORD_ATTEMPTS = 3
+
+    # Display constants
+    MAX_RECENT_ENTRIES = 5
+    MAX_URL_DISPLAY_LENGTH = 35
+
     def __init__(self):
         """Initialize configuration with environment variable support."""
         self.vault_path = self._get_vault_path()

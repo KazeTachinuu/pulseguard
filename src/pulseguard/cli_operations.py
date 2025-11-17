@@ -1,10 +1,8 @@
 """Core operations for CLI commands."""
 
-from getpass import getpass
 from typing import Optional
 
 import questionary
-from rich.prompt import Confirm
 
 from . import ui
 from .cli_helpers import (
@@ -15,9 +13,16 @@ from .cli_helpers import (
 )
 from .config import Config
 from .models import PasswordEntry
-from .passwordgen import copy_to_clipboard
 from .ui import select_category, select_entry, select_style
 from .vault import Vault
+
+
+def select_and_show_entry(vault: Vault, prompt: str, entries=None) -> None:
+    """Select entry, copy password, and show quick actions."""
+    entry = select_entry(vault, prompt, entries=entries)
+    if entry:
+        ui.copy_password_with_feedback(entry.password)
+        show_entry_with_quick_actions(vault, entry)
 
 
 def core_add_entry(vault: Vault) -> None:
@@ -39,12 +44,15 @@ def core_add_entry(vault: Vault) -> None:
         category = Config.DEFAULT_CATEGORY
 
     # Always ask if user wants to generate password
-    if Confirm.ask("Generate password?", default=True):
+    if ui.confirm("Generate password?", default=True):
         password = prompt_and_generate_password()
         if not password:
             return  # User cancelled
     else:
-        password = getpass("Password: ")
+        password = questionary.password("Password:", style=ui.select_style).ask()
+        if password is None:
+            ui.info(Message.CANCELLED.value)
+            return
 
     # Optional fields
     url = ui.prompt("URL (optional)", "")
@@ -115,25 +123,13 @@ def show_entry_with_quick_actions(vault: Vault, entry: PasswordEntry) -> bool:
                 ui.console.clear()
 
             elif action == QuickAction.COPY_PASSWORD.value:
-                copied = copy_to_clipboard(entry.password)
-                if copied:
-                    ui.success("Password copied to clipboard")
-                else:
-                    ui.warning("Clipboard unavailable")
+                ui.copy_password_with_feedback(entry.password)
 
             elif action == QuickAction.COPY_USERNAME.value:
-                copied = copy_to_clipboard(entry.username)
-                if copied:
-                    ui.success("Username copied to clipboard")
-                else:
-                    ui.warning("Clipboard unavailable")
+                ui.copy_with_feedback(entry.username, "Username")
 
             elif action == QuickAction.COPY_URL.value:
-                copied = copy_to_clipboard(entry.url)
-                if copied:
-                    ui.success("URL copied to clipboard")
-                else:
-                    ui.warning("Clipboard unavailable")
+                ui.copy_with_feedback(entry.url, "URL")
 
             elif action == QuickAction.EDIT.value:
                 # Edit the current entry (without re-selecting)
@@ -158,7 +154,7 @@ def show_entry_with_quick_actions(vault: Vault, entry: PasswordEntry) -> bool:
                     entry = refreshed
 
             elif action == QuickAction.DELETE.value:
-                if Confirm.ask(f"Delete '{entry.name}'?", default=False):
+                if ui.confirm(f"Delete '{entry.name}'?", default=False):
                     vault.remove(entry.name)
                     ui.success(f"Deleted entry '{entry.name}'")
                     return True
@@ -178,11 +174,7 @@ def core_get_entry(vault: Vault) -> None:
         return
 
     # Copy to clipboard
-    copied = copy_to_clipboard(entry.password)
-    if copied:
-        ui.success("Password copied to clipboard")
-    else:
-        ui.warning("Clipboard unavailable")
+    ui.copy_password_with_feedback(entry.password)
 
     show_entry_with_quick_actions(vault, entry)
 
@@ -201,7 +193,7 @@ def edit_existing_entry(vault: Vault, entry: PasswordEntry) -> Optional[Password
 
     # Handle category change
     current_category = entry.category or Config.DEFAULT_CATEGORY
-    if Confirm.ask(f"Change category? (current: {current_category})", default=False):
+    if ui.confirm(f"Change category? (current: {current_category})", default=False):
         new_category = select_category(
             vault,
             f"Select new category (current: {current_category})",
@@ -213,25 +205,26 @@ def edit_existing_entry(vault: Vault, entry: PasswordEntry) -> Optional[Password
         new_category = current_category
 
     # Handle password change
-    if Confirm.ask("Change password?", default=False):
-        if Confirm.ask("Generate new password?", default=True):
+    if ui.confirm("Change password?", default=False):
+        if ui.confirm("Generate new password?", default=True):
             new_password = prompt_and_generate_password()
             if new_password is None:
                 new_password = entry.password
         else:
-            new_password = getpass("New password: ")
+            new_password = questionary.password(
+                "New password:", style=ui.select_style
+            ).ask()
+            if new_password is None:
+                new_password = entry.password  # Keep old password if cancelled
     else:
         new_password = entry.password
 
-    updated_entry = PasswordEntry(
-        name=entry.name,
+    updated_entry = entry.copy_with_updates(
         username=new_username,
         password=new_password,
         url=new_url,
         notes=new_notes,
         category=new_category,
-        tags=entry.tags,
-        favorite=entry.favorite,
     )
     vault.add(updated_entry)
     ui.success(f"Updated entry '{entry.name}'")
@@ -256,7 +249,7 @@ def core_delete_entry(vault: Vault) -> None:
         return
 
     # Confirm deletion
-    if not Confirm.ask(f"Delete '{entry.name}'?", default=False):
+    if not ui.confirm(f"Delete '{entry.name}'?", default=False):
         ui.info(Message.CANCELLED.value)
         return
 
@@ -315,17 +308,31 @@ def core_browse_category(
         category_entries = vault.get_by_category(category)
 
         if category_entries:
-            ui.console.print(
-                f"\n[cyan]{category}[/cyan] [dim]({len(category_entries)})[/dim]"
-            )
+            from rich.panel import Panel
+            from rich.table import Table
+
+            # Create table for category entries
+            table = Table(show_header=False, box=None, padding=(0, 2))
+            table.add_column("Name", style="white", no_wrap=False)
+            table.add_column("Username", style="dim", no_wrap=False)
+            table.add_column("URL", style="blue dim", no_wrap=False)
+
             for e in sorted(category_entries, key=lambda x: x.name.lower()):
                 prefix = "★ " if e.favorite else ""
-                parts = [f"{prefix}{e.name}", f"[dim]{e.username}[/dim]"]
-                if e.url:
-                    url = e.url if len(e.url) <= 35 else e.url[:32] + "..."
-                    parts.append(f"[blue dim]{url}[/blue dim]")
-                ui.console.print(f"  {' · '.join(parts)}")
+                name = f"{prefix}{e.name}"
+                url = e.url if e.url else ""
+                if url and len(url) > Config.MAX_URL_DISPLAY_LENGTH:
+                    url = url[: Config.MAX_URL_DISPLAY_LENGTH - 3] + "..."
+                table.add_row(name, e.username, url)
+
+            panel = Panel(
+                table,
+                title=f"[bold cyan]{category}[/bold cyan] [dim]({len(category_entries)} entries)[/dim]",
+                border_style="cyan",
+                padding=(1, 2),
+            )
             ui.console.print()
+            ui.console.print(panel)
 
             # Let user select entry from this category (filtered)
             entry = select_entry(
@@ -339,6 +346,9 @@ def core_browse_category(
 
 def core_list_categories(vault: Vault) -> None:
     """List categories."""
+    from rich.panel import Panel
+    from rich.table import Table
+
     categories = vault.get_all_categories()
     if not categories:
         ui.info(Message.NO_CATEGORIES.value)
@@ -346,13 +356,23 @@ def core_list_categories(vault: Vault) -> None:
 
     entries_by_cat = vault.get_entries_by_category()
 
-    ui.console.print("\n[bold cyan]Categories[/bold cyan]\n")
+    # Create categories table
+    table = Table(show_header=True, box=None, padding=(0, 2))
+    table.add_column("Category", style="cyan", no_wrap=True)
+    table.add_column("Entries", style="dim", justify="right")
 
     for cat in categories:
         count = len(entries_by_cat.get(cat, []))
-        ui.console.print(f"  {cat}: [dim]{count} entries[/dim]")
+        table.add_row(cat, str(count))
 
-    ui.console.print(f"\n[dim]Total: {len(categories)} categories[/dim]\n")
+    panel = Panel(
+        table,
+        title=f"[bold cyan]Categories[/bold cyan] [dim]({len(categories)} total)[/dim]",
+        border_style="cyan",
+        padding=(1, 2),
+    )
+    ui.console.print()
+    ui.console.print(panel)
 
 
 def core_rename_category(vault: Vault) -> None:
@@ -396,16 +416,7 @@ def core_rename_category(vault: Vault) -> None:
 
     # Update all entries in the category
     for entry in entries:
-        updated_entry = PasswordEntry(
-            name=entry.name,
-            username=entry.username,
-            password=entry.password,
-            url=entry.url,
-            notes=entry.notes,
-            category=new_name,
-            tags=entry.tags,
-            favorite=entry.favorite,
-        )
+        updated_entry = entry.copy_with_updates(category=new_name)
         vault.add(updated_entry, update_timestamp=False)
 
     ui.success(
@@ -459,7 +470,7 @@ def core_move_entries_to_category(vault: Vault) -> None:
         to_category = selected
 
     # Confirm the move
-    if not Confirm.ask(
+    if not ui.confirm(
         f"Move {len(entries)} entries from '{from_category}' to '{to_category}'?",
         default=True,
     ):
@@ -468,16 +479,7 @@ def core_move_entries_to_category(vault: Vault) -> None:
 
     # Move all entries
     for entry in entries:
-        updated_entry = PasswordEntry(
-            name=entry.name,
-            username=entry.username,
-            password=entry.password,
-            url=entry.url,
-            notes=entry.notes,
-            category=to_category,
-            tags=entry.tags,
-            favorite=entry.favorite,
-        )
+        updated_entry = entry.copy_with_updates(category=to_category)
         vault.add(updated_entry, update_timestamp=False)
 
     ui.success(

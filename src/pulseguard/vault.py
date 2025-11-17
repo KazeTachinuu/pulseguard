@@ -238,7 +238,7 @@ class Vault:
         """Get all favorite entries."""
         return [e for e in self.entries if e.favorite]
 
-    def get_recent(self, limit: int = 5) -> List[PasswordEntry]:
+    def get_recent(self, limit: int = Config.MAX_RECENT_ENTRIES) -> List[PasswordEntry]:
         """Get recently accessed entries."""
         accessed = [e for e in self.entries if e.last_accessed is not None]
         # Sort by last_accessed descending (most recent first)
@@ -272,12 +272,10 @@ class Vault:
 
     def get_all_categories(self) -> List[str]:
         """Get all unique categories used in vault, sorted."""
-        categories = set(e.category for e in self.entries)
-        # Sort with Uncategorized last
-        sorted_cats = sorted(categories - {Config.DEFAULT_CATEGORY})
-        if Config.DEFAULT_CATEGORY in categories:
-            sorted_cats.append(Config.DEFAULT_CATEGORY)
-        return sorted_cats
+        categories = list(
+            set((e.category or Config.DEFAULT_CATEGORY) for e in self.entries)
+        )
+        return sort_categories_uncategorized_last(categories)
 
     def get_by_category(self, category: str) -> List[PasswordEntry]:
         """Get all entries in a specific category."""
